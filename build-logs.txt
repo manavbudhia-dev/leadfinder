@@ -1,0 +1,100 @@
+2026-10-29T08:29:37.069Z Cloning into '/workspace'...
+2026-10-29T08:29:37.069Z No folder path provided. Auto-detecting application directory...
+2026-10-29T08:29:37.069Z Workspace contents:
+2026-10-29T08:29:37.069Z total 36
+2026-10-29T08:29:37.069Z drwxr-xr-x 3 root root  4096 Oct 29 08:29 .
+2026-10-29T08:29:37.069Z drwxr-xr-x 1 root root  4096 Oct 29 08:29 ..
+2026-10-29T08:29:37.069Z drwxr-xr-x 8 root root  4096 Oct 29 08:29 .git
+2026-10-29T08:29:37.069Z -rw-r--r-- 1 root root  6746 Oct 29 08:29 app.py
+2026-10-29T08:29:37.069Z -rw-r--r-- 1 root root 10583 Oct 29 08:29 lead_pipeline.py
+2026-10-29T08:29:37.069Z -rw-r--r-- 1 root root    40 Oct 29 08:29 requirements.txt
+2026-10-29T08:29:37.069Z Using APPDIR=.
+2026-10-29T08:29:37.069Z No custom Dockerfile specified, looking for default 'Dockerfile' in application directory and workspace
+2026-10-29T08:29:37.069Z Searching for default Dockerfile in application directory: /workspace/.
+2026-10-29T08:29:37.069Z No explicit JDK version found in pom.xml or Gradle files; letting Railpack choose default
+2026-10-29T08:29:37.069Z DEBUG: RAILPACK_JDK_VERSION after detect_jdk_version=<unset>
+2026-10-29T08:29:37.069Z DEBUG: RAILPACK_PHP_EXTENSIONS after detect_php_extensions=<unset>
+2026-10-29T08:29:37.069Z DEBUG: running railpack prepare . --plan-out ./railpack-plan.json --info-out ./railpack-info.json
+2026-10-29T08:29:37.069Z                    
+2026-10-29T08:29:37.069Z ╭─────────────────╮
+2026-10-29T08:29:37.069Z │ Railpack 0.15.4 │
+2026-10-29T08:29:37.069Z ╰─────────────────╯
+2026-10-29T08:29:37.069Z 
+2026-10-29T08:29:37.069Z   ↳ Detected Python
+2026-10-29T08:29:37.069Z   ↳ Using pip
+2026-10-29T08:29:37.069Z             
+2026-10-29T08:29:37.069Z   Packages  
+2026-10-29T08:29:37.069Z   ──────────
+2026-10-29T08:29:37.069Z   python  │  3.13.18  │  railpack default (3.13)
+2026-10-29T08:29:37.069Z             
+2026-10-29T08:29:37.069Z   Steps     
+2026-10-29T08:29:37.069Z   ──────────
+2026-10-29T08:29:37.069Z   ▸ install
+2026-10-29T08:29:37.069Z     $ python -m venv /app/.venv
+2026-10-29T08:29:37.069Z     $ pip install -r requirements.txt
+2026-10-29T08:29:37.069Z             
+2026-10-29T08:29:37.069Z   Deploy    
+2026-10-29T08:29:37.069Z   ──────────
+2026-10-29T08:29:37.069Z     $ python app.py
+2026-10-29T08:29:37.069Z 
+2026-10-29T08:29:37.069Z Railpack did not detect a staticfile app; skipping generated Caddyfile
+2026-10-29T08:29:37.069Z ==== Patching railpack plan ====
+2026-10-29T08:29:37.069Z ==== Railpack info ====
+2026-10-29T08:29:37.069Z {
+2026-10-29T08:29:37.069Z   "railpackVersion": "0.15.4",
+2026-10-29T08:29:37.069Z   "resolvedPackages": {
+2026-10-29T08:29:37.069Z     "python": {
+2026-10-29T08:29:37.069Z       "name": "python",
+2026-10-29T08:29:37.069Z       "requestedVersion": "3.13",
+2026-10-29T08:29:37.069Z       "resolvedVersion": "3.13.18",
+2026-10-29T08:29:37.069Z       "source": "railpack default"
+2026-10-29T08:29:37.069Z     }
+2026-10-29T08:29:37.069Z   },
+2026-10-29T08:29:37.069Z   "metadata": {
+2026-10-29T08:29:37.069Z     "providers": "python",
+2026-10-29T08:29:37.069Z     "pythonPackageManager": "pip",
+2026-10-29T08:29:37.069Z     "pythonRuntime": "python"
+2026-10-29T08:29:37.069Z   },
+2026-10-29T08:29:37.069Z   "detectedProviders": [
+2026-10-29T08:29:37.069Z     "python"
+2026-10-29T08:29:37.069Z   ],
+2026-10-29T08:29:37.069Z   "logs": [
+2026-10-29T08:29:37.069Z     {
+2026-10-29T08:29:37.069Z       "Level": "info",
+2026-10-29T08:29:37.069Z       "Msg": "Detected Python"
+2026-10-29T08:29:37.069Z     },
+2026-10-29T08:29:37.069Z     {
+2026-10-29T08:29:37.069Z       "Level": "info",
+2026-10-29T08:29:37.069Z       "Msg": "Using pip"
+2026-10-29T08:29:37.069Z     }
+2026-10-29T08:29:37.069Z   ],
+2026-10-29T08:29:37.069Z   "success": true
+2026-10-29T08:29:37.069Z }==== Railpack plan ====
+2026-10-29T08:29:37.069Z {
+2026-10-29T08:29:37.069Z   "$schema": "https://schema.railpack.com",
+2026-10-29T08:29:37.069Z   "caches": {
+2026-10-29T08:29:37.069Z     "pip": {
+2026-10-29T08:29:37.069Z       "directory": "/opt/pip-cache",
+2026-10-29T08:29:37.069Z       "type": "shared"
+2026-10-29T08:29:37.069Z     }
+2026-10-29T08:29:37.069Z   },
+2026-10-29T08:29:37.069Z   "deploy": {
+2026-10-29T08:29:37.069Z     "base": {
+2026-10-29T08:29:37.069Z       "image": "ghcr.io/railwayapp/railpack-runtime:latest"
+2026-10-29T08:29:37.069Z     },
+2026-10-29T08:29:37.069Z     "inputs": [
+2026-10-29T08:29:37.069Z       {
+2026-10-29T08:29:37.069Z         "include": [
+2026-10-29T08:29:37.069Z           "/mise/shims",
+2026-10-29T08:29:37.069Z           "/mise/installs",
+2026-10-29T08:29:37.069Z           "/usr/local/bin/mise",
+2026-10-29T08:29:37.069Z           "/etc/mise/config.toml",
+2026-10-29T08:29:37.069Z           "/root/.local/state/mise"
+2026-10-29T08:29:37.069Z         ],
+2026-10-29T08:29:37.069Z         "step": "packages:mise"
+2026-10-29T08:29:37.069Z       },
+2026-10-29T08:29:37.069Z       {
+2026-10-29T08:29:37.069Z         "include": [
+2026-10-29T08:29:37.069Z           "/app/.venv"
+2026-10-29T08:29:37.069Z         ],
+2026-10-29T08:29:37.069Z         "step": "build"

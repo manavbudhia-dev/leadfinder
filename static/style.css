@@ -1,0 +1,174 @@
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: #f6f7fb;
+  color: #1f2430;
+}
+
+.layout { display: flex; min-height: 100vh; }
+
+.sidebar {
+  width: 280px;
+  flex-shrink: 0;
+  background: #fff;
+  border-right: 1px solid #e3e6ee;
+  padding: 20px;
+}
+.sidebar h2 { font-size: 1rem; margin: 0 0 6px; }
+.sidebar hr { border: none; border-top: 1px solid #e3e6ee; margin: 18px 0; }
+.sidebar label { display: block; font-size: 0.85rem; margin: 10px 0; }
+.sidebar input { width: 100%; margin-top: 4px; }
+
+main { flex: 1; padding: 24px 32px; max-width: 1100px; }
+h1 { margin: 0 0 4px; font-size: 1.6rem; }
+h3 { margin: 24px 0 8px; }
+
+.hint { color: #6b7280; font-size: 0.85rem; margin: 4px 0 12px; }
+
+input, button {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid #cbd2e0;
+  border-radius: 8px;
+  background: #fff;
+}
+input:focus { outline: 2px solid #4f6ef7; border-color: transparent; }
+
+button, .btn {
+  cursor: pointer;
+  display: inline-block;
+  text-decoration: none;
+  color: inherit;
+}
+button.primary, .btn.primary {
+  background: #4f6ef7;
+  border-color: #4f6ef7;
+  color: #fff;
+  font-weight: 600;
+}
+button.primary:hover { background: #3d5ae0; }
+button:disabled { opacity: 0.6; cursor: wait; }
+
+.tabs { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
+.tab { background: #fff; }
+.tab.active { background: #4f6ef7; border-color: #4f6ef7; color: #fff; }
+
+.panel { display: none; }
+.panel.active { display: block; }
+
+.row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.row.top { margin-top: 12px; }
+.row label { flex: 1; min-width: 160px; font-size: 0.85rem; }
+.row input { width: 100%; margin-top: 4px; }
+
+.msg { min-height: 1.2em; font-size: 0.9rem; margin: 10px 0; }
+.msg.ok { color: #157f3d; }
+.msg.err { color: #c02626; }
+.msg.warn { color: #b45309; }
+
+.card {
+  background: #fff;
+  border: 1px solid #e3e6ee;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin: 12px 0;
+}
+.card.valid { border-left: 4px solid #16a34a; }
+.card.risky { border-left: 4px solid #f59e0b; }
+.card.not_found { border-left: 4px solid #dc2626; }
+
+details { margin-top: 10px; }
+pre {
+  background: #101423;
+  color: #d7e0ff;
+  padding: 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+}
+
+table { border-collapse: collapse; width: 100%; background: #fff; font-size: 0.85rem; }
+th, td { border: 1px solid #e3e6ee; padding: 6px 10px; text-align: left; }
+th { background: #eef1f8; }
+.table-wrap { overflow-x: auto; margin: 10px 0; }
+
+.bar {
+  height: 14px;
+  background: #e3e6ee;
+  border-radius: 7px;
+  overflow: hidden;
+  margin: 12px 0 4px;
+}
+#bar-fill { height: 100%; width: 0; background: #4f6ef7; transition: width 0.2s; }
+
+.badge { padding: 2px 8px; border-radius: 10px; font-size: 0.78rem; font-weight: 600; }
+.badge.valid { background: #dcfce7; color: #157f3d; }
+.badge.risky { background: #fef3c7; color: #b45309; }
+.badge.not_found { background: #fee2e2; color: #c02626; }
+
+.hidden { display: none; }
+
+.login-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.login-card { width: 320px; display: flex; flex-direction: column; gap: 10px; }
+.login-card h1 { font-size: 1.3rem; margin: 0; }
+.login-card input { width: 100%; }
+
+#logout-btn { margin-top: 10px; width: 100%; }
+
+.alert {
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin: 8px 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+.alert.warn { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+.alert.err { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+
+.charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 12px 0;
+}
+.chart {
+  background: #fff;
+  border: 1px solid #e3e6ee;
+  border-radius: 10px;
+  min-height: 260px;
+}
+.chart-wide { grid-column: 1 / -1; }
+
+label.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+label.check input { width: auto; margin: 0; }
+
+select {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid #cbd2e0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+@media (max-width: 760px) {
+  .charts { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 760px) {
+  .layout { flex-direction: column; }
+  .sidebar { width: 100%; border-right: none; border-bottom: 1px solid #e3e6ee; }
+  main { padding: 16px; }
+}

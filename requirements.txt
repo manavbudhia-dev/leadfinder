@@ -1,4 +1,5 @@
-streamlit
+flask
 requests
-pandas
 python-dotenv
+gunicorn
+cryptography

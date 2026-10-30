@@ -1,0 +1,35 @@
+services:
+  leadfinder:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DATA_DIR=/data
+    volumes:
+      - leadfinder-data:/data
+    restart: unless-stopped
+
+  # HTTPS ke liye: docker compose --profile https up -d --build
+  # .env mein DOMAIN=leads.example.com set karo (DNS A record -> server IP)
+  caddy:
+    image: caddy:2
+    profiles: ["https"]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - leadfinder
+    restart: unless-stopped
+
+volumes:
+  leadfinder-data:
+  caddy-data:
+  caddy-config:

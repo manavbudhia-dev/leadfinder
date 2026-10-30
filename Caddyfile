@@ -1,0 +1,5 @@
+# Caddy automatic HTTPS (Let's Encrypt). DOMAIN env mein apna domain daalo.
+# DNS: domain ka A record server IP par point kare, ports 80/443 open hon.
+{$DOMAIN:localhost} {
+	reverse_proxy leadfinder:8000
+}

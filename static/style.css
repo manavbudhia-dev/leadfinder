@@ -21,20 +21,20 @@ body {
 .sidebar label { display: block; font-size: 0.85rem; margin: 10px 0; }
 .sidebar input { width: 100%; margin-top: 4px; }
 
-main { flex: 1; padding: 24px 32px; max-width: 1100px; }
+main { flex: 1; min-width: 0; padding: 24px 32px; max-width: 1100px; }
 h1 { margin: 0 0 4px; font-size: 1.6rem; }
 h3 { margin: 24px 0 8px; }
 
 .hint { color: #6b7280; font-size: 0.85rem; margin: 4px 0 12px; }
 
-input, button {
+input, select, button, .btn {
   font: inherit;
   padding: 8px 10px;
   border: 1px solid #cbd2e0;
   border-radius: 8px;
   background: #fff;
 }
-input:focus { outline: 2px solid #4f6ef7; border-color: transparent; }
+input:focus, select:focus, button:focus, .btn:focus { outline: 2px solid #4f6ef7; border-color: transparent; }
 
 button, .btn {
   cursor: pointer;
@@ -48,7 +48,7 @@ button.primary, .btn.primary {
   color: #fff;
   font-weight: 600;
 }
-button.primary:hover { background: #3d5ae0; }
+button.primary:hover, .btn.primary:hover { background: #3d5ae0; }
 button:disabled { opacity: 0.6; cursor: wait; }
 
 .tabs { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
@@ -109,8 +109,6 @@ th { background: #eef1f8; }
 .badge.risky { background: #fef3c7; color: #b45309; }
 .badge.not_found { background: #fee2e2; color: #c02626; }
 
-.hidden { display: none; }
-
 .login-wrap {
   min-height: 100vh;
   display: flex;
@@ -135,7 +133,7 @@ th { background: #eef1f8; }
 
 .charts {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   margin: 12px 0;
 }
@@ -144,6 +142,8 @@ th { background: #eef1f8; }
   border: 1px solid #e3e6ee;
   border-radius: 10px;
   min-height: 260px;
+  min-width: 0;
+  overflow: hidden;
 }
 .chart-wide { grid-column: 1 / -1; }
 
@@ -155,20 +155,12 @@ label.check {
 }
 label.check input { width: auto; margin: 0; }
 
-select {
-  font: inherit;
-  padding: 8px 10px;
-  border: 1px solid #cbd2e0;
-  border-radius: 8px;
-  background: #fff;
-}
-
 @media (max-width: 760px) {
-  .charts { grid-template-columns: 1fr; }
-}
-
-@media (max-width: 760px) {
+  .charts { grid-template-columns: minmax(0, 1fr); }
   .layout { flex-direction: column; }
   .sidebar { width: 100%; border-right: none; border-bottom: 1px solid #e3e6ee; }
   main { padding: 16px; }
 }
+
+/* JS se toggle hota hai; component display rules (label.check, .charts) isse override na karein */
+.hidden { display: none !important; }

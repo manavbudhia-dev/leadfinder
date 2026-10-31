@@ -160,3 +160,4 @@ body.set #side-usage,body.set #side-prov,body.set #side-cred{display:none!import
 .card .r{display:flex;gap:10px;flex-wrap:wrap}.card .tbl-h .in{margin:0;height:40px}.card .tbl-h .in.sel{width:150px}
 @media(max-width:860px){.in.rng{width:100%}}
 #history-table .table-wrap{max-height:560px;overflow:auto}
+.ver{margin:0;color:var(--mu);font-size:11.5px;text-align:center}

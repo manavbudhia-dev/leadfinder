@@ -1,18 +1,18 @@
 <!DOCTYPE html>
-<html lang="hi">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login — LeadFinder</title>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&display=swap"><link rel="stylesheet" href="style.css?v=2026.10.31">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&display=swap"><link rel="stylesheet" href="style.css?v=2026.10.31-3">
 </head>
 <body>
   <div class="login-wrap">
     <form id="login-form" class="card login-card">
       <div class="logo"><div class="lg"><svg class="i" viewBox="0 0 24 24" style="fill:#fff;stroke:#fff"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></div><div><b>LeadFinder</b><small>Find anyone’s professional email</small></div></div>
-      <p class="hint">Enter your app password</p>
-      <input type="password" id="password" placeholder="Password" class="pw" autocomplete="current-password" required>
-      <button type="submit" class="btn p c">Login</button>
+      <label class="f" for="password">Password</label>
+      <input type="password" id="password" placeholder="Enter your app password" class="pw" autofocus autocomplete="current-password" required>
+      <button type="submit" class="btn p c">Sign in</button>
       <p id="login-msg" class="msg"></p>
     </form>
   </div>
@@ -28,7 +28,7 @@
           body: JSON.stringify({ password: document.getElementById("password").value }),
         });
         const body = await res.json();
-        if (!res.ok) throw new Error(body.error || "Login fail");
+        if (!res.ok) throw new Error(body.error || "Sign-in failed. Try again.");
         location.href = "/";
       } catch (err) {
         msg.textContent = err.message;

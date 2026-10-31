@@ -44,7 +44,7 @@ import sheets
 import throttle
 
 app = Flask(__name__, static_folder="static", static_url_path="")
-APP_VERSION = "2026.10.31-new-design"
+APP_VERSION = "2026.10.31-ux3"
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY") or os.urandom(32)
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"

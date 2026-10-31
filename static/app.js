@@ -40,7 +40,7 @@ const postJson = (path, data) => api(path, {
 function renderTable(container, rows, columns, opts = {}) {
   container.innerHTML = "";
   if (!rows.length) {
-    container.textContent = "Abhi kuch nahi hai.";
+    container.textContent = "Nothing here yet.";
     return;
   }
   const wrap = document.createElement("div");
@@ -96,14 +96,14 @@ async function loadSettings() {
   KEY_ENVS.forEach((env) => {
     const input = $("key-" + env);
     input.value = "";
-    input.placeholder = s.keys[env] ? "•••••• (set hai, badalna ho to hi bharo)" : "khali hai";
+    input.placeholder = s.keys[env] ? "•••••• saved. Type to replace." : "Not set";
   });
   PROVIDERS.forEach((p) => { $("lim-" + p).value = s.limits[p]; });
   paintSettings(s);
   $("flag-pattern").checked = s.flags.pattern_guess;
   $("flag-push").checked = s.flags.push_valid;
   $("webhook-url").value = "";
-  $("webhook-url").placeholder = s.webhook_set ? "•••••• (set hai)" : "https://hooks.zapier.com/...";
+  $("webhook-url").placeholder = s.webhook_set ? "•••••• saved" : "https://hooks.zapier.com/...";
   $("logout-btn").classList.toggle("hidden", !s.auth);
 }
 
@@ -111,7 +111,7 @@ $("save-settings").addEventListener("click", async () => {
   const keys = {};
   KEY_ENVS.forEach((env) => {
     const v = $("key-" + env).value.trim();
-    if (v || $("key-" + env).placeholder === "khali hai") keys[env] = v;
+    if (v || $("key-" + env).placeholder === "Not set") keys[env] = v;
   });
   const limits = {};
   PROVIDERS.forEach((p) => { limits[p] = $("lim-" + p).value; });
@@ -124,7 +124,7 @@ $("save-settings").addEventListener("click", async () => {
   }
   try {
     await postJson("/api/settings", payload);
-    setMsg($("settings-msg"), "Save ho gaya ✅", "ok");
+    setMsg($("settings-msg"), "Settings saved.", "ok");
     await loadSettings();
     loadAlerts();
   } catch (e) {
@@ -142,7 +142,6 @@ document.querySelectorAll(".tab").forEach((btn) => {
   btn.addEventListener("click", () => {
     document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === btn.dataset.tab));
     document.body.dataset.tab = btn.dataset.tab;
-    document.body.classList.remove("set");
     document.querySelectorAll(".panel").forEach((p) =>
       p.classList.toggle("active", p.id === "tab-" + btn.dataset.tab));
     if (btn.dataset.tab === "single") loadRecent();
@@ -169,11 +168,12 @@ async function loadAlerts() {
       const div = document.createElement("div");
       div.className = "alert " + (q.exhausted ? "err" : "warn");
       div.textContent = q.exhausted
-        ? `⛔ ${q.provider}: credits khatam (${q.used}/${q.monthly_limit}). Reset: ${q.resets_on}`
-        : `⚠️ ${q.provider}: credits kam hain — sirf ${q.remaining} bache (${q.used}/${q.monthly_limit})`;
+        ? `${cap(q.provider)} credits are used up (${q.used}/${q.monthly_limit}). Resets ${q.resets_on}.`
+        : `${cap(q.provider)} credits are running low: ${q.remaining} left (${q.used}/${q.monthly_limit}).`;
       box.appendChild(div);
     });
-  } catch (e) { /* alerts best-effort hain */ }
+  } catch (e) { /* alerts are best-effort */ }
+  refreshNotifs();
 }
 
 // ---------- single lead ----------
@@ -326,7 +326,7 @@ $("csv-file").addEventListener("change", async () => {
     csvHeader = parseCsvLine(lines[0] || "");
     csvRawRows = lines.slice(1).map(parseCsvLine);
     if (!csvRawRows.length) {
-      setMsg($("csv-msg"), "CSV khali hai.", "err");
+      setMsg($("csv-msg"), "The CSV is empty.", "err");
       return;
     }
     const map = autoMap(csvHeader);
@@ -544,7 +544,7 @@ async function saveMeta(row) {
       first_name: row.first_name, last_name: row.last_name, domain: row.domain,
       pipeline: row.pipeline || "", tags: row.tags || "", notes: row.notes || "",
     });
-    setMsg($("hist-msg"), "Save ho gaya ✅", "ok");
+    setMsg($("hist-msg"), "Settings saved.", "ok");
   } catch (e) {
     setMsg($("hist-msg"), e.message, "err");
   }
@@ -655,7 +655,7 @@ async function loadAutomation() {
     $("oc-provider").value = s.outreach.provider;
     $("oc-campaign").value = s.outreach.campaign;
     $("oc-key").value = "";
-    $("oc-key").placeholder = s.outreach.key_set ? "•••••• (set hai)" : "Enter API key";
+    $("oc-key").placeholder = s.outreach.key_set ? "•••••• saved" : "Enter API key";
     $("oc-enabled").classList.toggle("off", !s.outreach.enabled);
     markPlat();
   } catch (e) { /* settings msg sidebar mein dikhega */ }
@@ -787,7 +787,6 @@ function paintSettings(s) {
     $("rl-" + p).textContent = `${s.limits[p]} / month`;
   });
   PROVIDERS.forEach((p) => { const on = !!s.keys[p.toUpperCase() + "_API_KEY"]; document.querySelectorAll(`[data-sp="${p}"]`).forEach((e) => e.classList.toggle("off", !on)); });
-  $("sp-all").textContent = active === 3 ? "All connected" : `${active} of 3 connected`;
   $("a-toggle").classList.toggle("off", !s.flags.push_valid);
   $("a-valid").checked = s.flags.push_only_valid;
   $("a-webhook").value = "";
@@ -808,10 +807,6 @@ function paintStats(quota, stats) {
   $("pp-sent").textContent = ["contacted", "replied", "interested", "closed"].reduce((a, k) => a + (pc[k] || 0), 0);
   $("pp-replied").textContent = pc.replied || 0;
 }
-document.querySelectorAll(".nav-set").forEach((b) => b.addEventListener("click", () => {
-  document.body.classList.toggle("set");
-  $("side-settings").scrollIntoView({ behavior: "smooth" });
-}));
 const dz = $("dropzone");
 ["dragover", "dragenter"].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.add("drag"); }));
 ["dragleave", "drop"].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove("drag"); }));
@@ -927,9 +922,72 @@ $("tut-prev").addEventListener("click", () => { tutI--; showTut(); });
 $("tut-next").addEventListener("click", () => {
   if (tutI < TUT.length - 1) { tutI++; showTut(); return; }
   $("tut").classList.add("hidden");
-  if (!TUT[tutI][3]) { document.body.classList.add("set"); $("side-settings").scrollIntoView({ behavior: "smooth" }); }
+  if (!TUT[tutI][3]) openTab("keys");
 });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("tut").classList.add("hidden"); });
 $("gsearch").addEventListener("keydown", (e) => { if (e.key === "Enter" && $("gsearch").value.trim()) { $("rl-q").value = $("gsearch").value.trim(); document.querySelector('nav.m [data-tab="single"]').click(); } });
 document.addEventListener("keydown", (e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); $("gsearch").focus(); } });
 loadRecent();
+
+
+// ---------- menus, notifications, sign out ----------
+const LS_READ = "lf_notif_read";
+let notifs = [], lfAuth = false;
+const readSet = () => { try { return new Set(JSON.parse(localStorage.getItem(LS_READ) || "[]")); } catch (e) { return new Set(); } };
+const saveRead = (s) => { try { localStorage.setItem(LS_READ, JSON.stringify([...s].slice(-200))); } catch (e) { /* storage blocked */ } };
+function closeMenus() {
+  ["notif", "umenu"].forEach((id) => { $(id).hidden = true; });
+  $("bell").setAttribute("aria-expanded", "false"); $("usr").setAttribute("aria-expanded", "false");
+}
+function toggleMenu(id, btn) {
+  const open = $(id).hidden;
+  closeMenus();
+  $(id).hidden = !open;
+  btn.setAttribute("aria-expanded", String(open));
+  if (open && id === "notif") renderNotifs();
+}
+function paintBell() {
+  const unread = notifs.filter((n) => !readSet().has(n.id)).length;
+  $("bell-n").textContent = unread > 9 ? "9+" : unread;
+  $("bell-n").classList.toggle("hidden", !unread);
+  $("bell").setAttribute("aria-label", unread ? `Notifications, ${unread} unread` : "Notifications");
+}
+function renderNotifs() {
+  const rd = readSet(), box = $("notif-list");
+  if (!notifs.length) { box.innerHTML = '<div class="nz">You’re all caught up.</div>'; return; }
+  box.innerHTML = notifs.map((n, i) => `<button type="button" class="ni ${rd.has(n.id) ? "" : "u"}" data-i="${i}"><span class="lv ${n.lvl}"></span><span><b>${esc(n.t)}</b><span class="d">${esc(n.d)}</span></span></button>`).join("");
+  box.querySelectorAll(".ni").forEach((b) => b.addEventListener("click", () => {
+    const n = notifs[+b.dataset.i], s = readSet(); s.add(n.id); saveRead(s); paintBell(); closeMenus();
+    if (n.go === "settings") openTab("keys");
+    if (n.go === "job") { openTab("csv"); openJob(n.job); }
+  }));
+}
+function paintUserMenu() { $("so").hidden = !lfAuth; $("so-note").hidden = lfAuth; }
+async function refreshNotifs() {
+  const [s, q, jobs] = (await Promise.allSettled([api("/api/settings"), api("/api/quota"), api("/api/jobs")])).map((r) => (r.status === "fulfilled" ? r.value : null));
+  const list = [];
+  if (s) {
+    lfAuth = !!s.auth; paintUserMenu();
+    if (!s.auth) list.push({ id: "auth-off", lvl: "warn", t: "Sign-in is turned off", d: "Anyone with this link can use the app. Set APP_PASSWORD on your server to require a password." });
+    if (!s.keys.REOON_API_KEY) list.push({ id: "no-reoon", lvl: "warn", t: "Add your Reoon key", d: "Emails can’t be verified until it’s set.", go: "settings" });
+    if (!PROVIDERS.some((p) => s.keys[p.toUpperCase() + "_API_KEY"])) list.push({ id: "no-source", lvl: "ok", t: "No data source connected", d: "Add a Hunter, Prospeo or Apollo key to widen your search.", go: "settings" });
+  }
+  (q || []).forEach((x) => {
+    if (x.exhausted) list.push({ id: `q-${x.provider}-out-${x.resets_on}`, lvl: "err", t: `${cap(x.provider)} credits used up`, d: `${x.used}/${x.monthly_limit} used. Resets ${x.resets_on}.`, go: "settings" });
+    else if (x.low) list.push({ id: `q-${x.provider}-low-${x.resets_on}`, lvl: "warn", t: `${cap(x.provider)} credits running low`, d: `${x.remaining} left of ${x.monthly_limit}.`, go: "settings" });
+  });
+  (jobs || []).slice(0, 5).forEach((x) => {
+    const name = x.filename || x.id;
+    if (x.status === "done") list.push({ id: `j-${x.id}-done`, lvl: "ok", t: "CSV job finished", d: `${name}: ${x.done}/${x.total} rows processed.`, go: "job", job: x.id });
+    else if (x.status === "paused" || x.status === "error") list.push({ id: `j-${x.id}-${x.status}`, lvl: "err", t: x.status === "paused" ? "CSV job paused" : "CSV job failed", d: `${name}${x.error ? ": " + x.error : ""}`, go: "job", job: x.id });
+  });
+  notifs = list; paintBell();
+  if (!$("notif").hidden) renderNotifs();
+}
+$("bell").addEventListener("click", (e) => { e.stopPropagation(); toggleMenu("notif", $("bell")); });
+$("usr").addEventListener("click", (e) => { e.stopPropagation(); toggleMenu("umenu", $("usr")); });
+document.addEventListener("click", (e) => { if (!e.target.closest(".menu")) closeMenus(); });
+$("notif-all").addEventListener("click", () => { const s = readSet(); notifs.forEach((n) => s.add(n.id)); saveRead(s); paintBell(); renderNotifs(); });
+$("u-set").addEventListener("click", () => { closeMenus(); openTab("keys"); });
+$("so").addEventListener("click", async () => { try { await fetch("/api/logout", { method: "POST" }); } finally { location.href = "/login"; } });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeMenus(); });

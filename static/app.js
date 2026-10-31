@@ -1,11 +1,11 @@
 const $ = (id) => document.getElementById(id);
 
 const STATUS_LABEL = {
-  valid: "✅ Sahi email",
-  risky: "⚠️ Risky (check karo)",
-  not_found: "❌ Nahi mila",
+  valid: "✅ Verified",
+  risky: "⚠️ Risky (check)",
+  not_found: "❌ Not found",
 };
-const STATUS_COLORS = { valid: "#16a34a", risky: "#f59e0b", not_found: "#dc2626" };
+const STATUS_COLORS = { valid: "#22c55e", risky: "#f59e0b", not_found: "#ef4444" };
 const KEY_ENVS = ["REOON_API_KEY", "HUNTER_API_KEY", "PROSPEO_API_KEY", "APOLLO_API_KEY"];
 const PROVIDERS = ["hunter", "prospeo", "apollo"];
 
@@ -99,6 +99,7 @@ async function loadSettings() {
     input.placeholder = s.keys[env] ? "•••••• (set hai, badalna ho to hi bharo)" : "khali hai";
   });
   PROVIDERS.forEach((p) => { $("lim-" + p).value = s.limits[p]; });
+  paintSettings(s);
   $("flag-pattern").checked = s.flags.pattern_guess;
   $("flag-push").checked = s.flags.push_valid;
   $("webhook-url").value = "";
@@ -139,12 +140,16 @@ $("logout-btn").addEventListener("click", async () => {
 // ---------- tabs ----------
 document.querySelectorAll(".tab").forEach((btn) => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b === btn));
+    document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === btn.dataset.tab));
+    document.body.dataset.tab = btn.dataset.tab;
+    document.body.classList.remove("set");
     document.querySelectorAll(".panel").forEach((p) =>
       p.classList.toggle("active", p.id === "tab-" + btn.dataset.tab));
+    if (btn.dataset.tab === "single") loadRecent();
     if (btn.dataset.tab === "dash") loadDashboard();
     if (btn.dataset.tab === "csv") loadJobsList();
     if (btn.dataset.tab === "auto") loadAutomation();
+    if (btn.dataset.goto) setTimeout(() => $(btn.dataset.goto).scrollIntoView({ behavior: "smooth" }), 150);
   });
 });
 
@@ -156,6 +161,7 @@ function openTab(name) {
 async function loadAlerts() {
   try {
     const quota = await api("/api/quota");
+    paintQuota(quota);
     const box = $("quota-alerts");
     box.innerHTML = "";
     quota.forEach((q) => {
@@ -195,6 +201,7 @@ $("find-btn").addEventListener("click", async () => {
     $("single-log").textContent = r.log || "-";
     $("single-log-wrap").classList.remove("hidden");
     loadAlerts();
+    loadRecent();
   } catch (e) {
     setMsg($("single-msg"), e.message, "err");
   } finally {
@@ -455,46 +462,65 @@ async function loadJobsList() {
 }
 
 // ---------- dashboard ----------
-const PLOT_LAYOUT = { height: 260, margin: { t: 40, b: 40, l: 45, r: 15 }, paper_bgcolor: "transparent" };
-const PLOT_CONFIG = { responsive: true, displayModeBar: false };
+const esc = (v) => String(v == null ? "" : v).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const PVH = (p) => p === "hunter" ? '<span class="pv hu"><svg viewBox="0 0 24 24"><use href="#i-hu"/></svg></span>'
+  : p === "apollo" ? '<span class="pv ap"><svg viewBox="0 0 24 24"><use href="#i-ap"/></svg></span>'
+  : p === "prospeo" ? '<span class="pv pr">P</span>' : "";
+const cap = (p) => p.charAt(0).toUpperCase() + p.slice(1);
+const fmtDay = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const niceMax = (m) => [5, 10, 20, 40, 80, 100, 200, 400, 800, 1000, 2000, 5000].find((x) => x >= m) || Math.ceil(m / 1000) * 1000;
+const smooth = (pts) => pts.reduce((o, p, i) => i ? o + `C${(pts[i - 1][0] + p[0]) / 2},${pts[i - 1][1]} ${(pts[i - 1][0] + p[0]) / 2},${p[1]} ${p}` : `M${p}`, "");
+const grid = (w, h, max, L) => [0, 1, 2, 3, 4].map((i) => `<path d="M${L} ${10 + i * (h / 4)}H${w}" stroke="#1a2250"/><text x="2" y="${14 + i * (h / 4)}" fill="#8e99c6" font-size="11">${Math.round(max - i * max / 4)}</text>`).join("");
+const dayLabels = (days, w, L, y) => [0, 1, 2, 3, 4, 5, 6].map((i) => {
+  const d = days[Math.round(i * (days.length - 1) / 6)]; if (!d) return "";
+  return `<text x="${L + i * (w - L - 30) / 6}" y="${y}" fill="#8e99c6" font-size="11">${MON[+d.slice(5, 7) - 1]} ${d.slice(8)}</text>`; }).join("");
+const rangeDays = () => { const n = +$("rng").value || 30, out = []; for (let i = n - 1; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); out.push(fmtDay(d)); } return out; };
+let dashCache = null;
+
+function drawQuota(rows) {
+  const max = niceMax(Math.max(1, ...rows.map((q) => q.monthly_limit))), H = 136, bw = 90;
+  $("chart-quota").innerHTML = `<svg viewBox="0 0 520 190">${grid(400, H, max, 40)}${rows.map((q, i) => {
+    const x = 64 + i * 112, th = q.monthly_limit / max * H, uh = Math.min(q.used, q.monthly_limit) / max * H;
+    return `<rect x="${x}" y="${10 + H - th}" width="${bw}" height="${th}" fill="#2a2f78"/><rect x="${x}" y="${10 + H - uh}" width="${bw}" height="${uh}" fill="#7c5cff"/><text x="${x + 20}" y="178" fill="#cfd5f5" font-size="12">${cap(q.provider)}</text>`; }).join("")}
+    <g font-size="12" fill="#cfd5f5"><rect x="420" y="40" width="11" height="11" fill="#2a2f78"/><text x="438" y="50">Remaining</text><rect x="420" y="62" width="11" height="11" fill="#7c5cff"/><text x="438" y="72">Used</text></g></svg>`;
+}
+function drawStatus(stats) {
+  const days = rangeDays(), by = {};
+  stats.daily.forEach((r) => { (by[r.found_at] = by[r.found_at] || {})[r.status] = r.c; });
+  const get = (f) => days.map((d) => f(by[d] || {}));
+  const S = [["#8b5cf6", get((o) => (o.valid || 0) + (o.risky || 0) + (o.not_found || 0))], ["#22c55e", get((o) => o.valid || 0)], ["#ef4444", get((o) => o.not_found || 0)]];
+  const max = niceMax(Math.max(1, ...S[0][1])), H = 136, W = 530, n = days.length;
+  const path = (v) => smooth(v.map((x, i) => [30 + (n > 1 ? i * W / (n - 1) : 0), 10 + H - x / max * H]));
+  $("chart-status").innerHTML = `<svg viewBox="0 0 560 190">${grid(560, H, max, 30)}${dayLabels(days, 560, 30, 186)}<g fill="none" stroke-width="2">${S.map(([c, v]) => `<path d="${path(v)}" stroke="${c}"/>`).join("")}</g></svg>`;
+}
+function drawDaily(stats) {
+  const days = rangeDays(), tot = {};
+  stats.daily.forEach((r) => { tot[r.found_at] = (tot[r.found_at] || 0) + r.c; });
+  const v = days.map((d) => tot[d] || 0), max = niceMax(Math.max(1, ...v)), H = 112, n = days.length, step = 480 / n, bw = Math.max(2, step * 0.6);
+  $("chart-daily").innerHTML = `<svg viewBox="0 0 520 150">${grid(520, H, max, 30)}${v.map((x, i) => `<rect x="${38 + i * step}" y="${10 + H - x / max * H}" width="${bw}" height="${x / max * H}" rx="2" fill="#6d4df5"/>`).join("")}${dayLabels(days, 520, 34, 146)}</svg>`;
+}
+function renderQuotaTable(quota) {
+  const rows = quota.filter((q) => PROVIDERS.includes(q.provider));
+  $("quota-table").innerHTML = `<div class="tw"><table><tr><th>Provider</th><th>Used</th><th>Monthly Limit</th><th>Remaining</th><th>Usage %</th><th>Resets On</th><th>Status</th></tr>${rows.map((q) => {
+    const pct = q.monthly_limit ? Math.round(q.used / q.monthly_limit * 100) : 0, col = q.exhausted ? "#ef4444" : q.low ? "#f59e0b" : "#22c55e";
+    const st = q.exhausted ? ["fl", "Exhausted"] : q.low ? ["p", "Low"] : ["a", "Active"];
+    return `<tr><td><div class="nmc">${PVH(q.provider)}${cap(q.provider)}</div></td><td>${q.used}</td><td>${q.monthly_limit}</td><td>${q.remaining}</td><td><div style="display:flex;gap:12px;align-items:center"><b>${pct}%</b><div class="bar" style="width:160px;margin:0"><i style="width:${Math.min(100, pct)}%;background:${col}"></i></div></div></td><td>${esc(q.resets_on)}</td><td><span class="st ${st[0]}">● ${st[1]}</span></td></tr>`; }).join("")}</table></div>`;
+}
+function drawDashboard() {
+  if (!dashCache) return;
+  document.querySelectorAll(".rl").forEach((e) => { e.textContent = $("rng").value; });
+  const { quota, stats } = dashCache, q3 = quota.filter((q) => PROVIDERS.includes(q.provider));
+  drawQuota(q3); drawStatus(stats); drawDaily(stats); paintStats(quota, stats);
+}
+$("rng").addEventListener("change", drawDashboard);
 
 async function loadDashboard() {
   try {
     const [quota, stats] = await Promise.all([api("/api/quota"), api("/api/stats")]);
-    renderTable($("quota-table"), quota, ["provider", "used", "monthly_limit", "remaining", "resets_on"]);
-
-    Plotly.newPlot("chart-quota", [
-      { x: quota.map((q) => q.provider), y: quota.map((q) => q.used), name: "Used", type: "bar", marker: { color: "#4f6ef7" } },
-      { x: quota.map((q) => q.provider), y: quota.map((q) => q.remaining), name: "Bacha", type: "bar", marker: { color: "#c7d2fe" } },
-    ], { ...PLOT_LAYOUT, title: "Credits usage", barmode: "stack" }, PLOT_CONFIG);
-
-    const sc = stats.status_counts;
-    const labels = ["valid", "risky", "not_found"].filter((s) => sc[s]);
-    Plotly.newPlot("chart-status", [{
-      labels: labels.map((s) => STATUS_LABEL[s]),
-      values: labels.map((s) => sc[s]),
-      type: "pie", hole: 0.55,
-      marker: { colors: labels.map((s) => STATUS_COLORS[s]) },
-    }], { ...PLOT_LAYOUT, title: "Leads status" }, PLOT_CONFIG);
-
-    const pc = stats.pipeline_counts || {};
-    const pLabels = ["", "contacted", "replied", "interested", "closed"].filter((p) => pc[p]);
-    Plotly.newPlot("chart-pipeline", [{
-      x: pLabels.map((p) => p === "" ? "new" : p),
-      y: pLabels.map((p) => pc[p]),
-      type: "bar", marker: { color: "#8b5cf6" },
-    }], { ...PLOT_LAYOUT, title: "CRM pipeline" }, PLOT_CONFIG);
-
-    const days = [...new Set(stats.daily.map((d) => d.found_at))].sort().slice(-30);
-    const series = ["valid", "risky", "not_found"].map((s) => ({
-      x: days,
-      y: days.map((d) => stats.daily.filter((r) => r.found_at === d && r.status === s)
-        .reduce((a, r) => a + r.c, 0)),
-      name: STATUS_LABEL[s], type: "bar", marker: { color: STATUS_COLORS[s] },
-    }));
-    Plotly.newPlot("chart-daily", series,
-      { ...PLOT_LAYOUT, title: "Daily leads (last 30 din)", barmode: "stack" }, PLOT_CONFIG);
-
+    dashCache = { quota, stats };
+    renderQuotaTable(quota);
+    drawDashboard();
     loadHistory();
   } catch (e) {
     $("quota-table").textContent = e.message;
@@ -629,7 +655,9 @@ async function loadAutomation() {
     $("oc-provider").value = s.outreach.provider;
     $("oc-campaign").value = s.outreach.campaign;
     $("oc-key").value = "";
-    $("oc-key").placeholder = s.outreach.key_set ? "•••••• (set hai)" : "API key";
+    $("oc-key").placeholder = s.outreach.key_set ? "•••••• (set hai)" : "Enter API key";
+    $("oc-enabled").classList.toggle("off", !s.outreach.enabled);
+    markPlat();
   } catch (e) { /* settings msg sidebar mein dikhega */ }
 }
 
@@ -687,7 +715,7 @@ $("sch-add").addEventListener("click", async () => {
 });
 
 $("oc-save").addEventListener("click", async () => {
-  const payload = { outreach: { provider: $("oc-provider").value, campaign: $("oc-campaign").value.trim() } };
+  const payload = { outreach: { provider: $("oc-provider").value, campaign: $("oc-campaign").value.trim(), enabled: !$("oc-enabled").classList.contains("off") } };
   if ($("oc-key").value.trim()) payload.outreach.api_key = $("oc-key").value.trim();
   try {
     await postJson("/api/settings", payload);
@@ -737,3 +765,171 @@ $("tok-create").addEventListener("click", async () => {
 
 loadSettings().catch((e) => setMsg($("settings-msg"), e.message, "err"));
 loadAlerts();
+
+// ---------- new design helpers ----------
+const LIM_COLORS = { hunter: "#2f6bff", prospeo: "#a855f7", apollo: "#22c55e" };
+function paintQuota(quota) {
+  let days = null;
+  quota.forEach((q) => {
+    document.querySelectorAll(`[data-su="${q.provider}"]`).forEach((e) => { e.textContent = `${q.used} / ${q.monthly_limit}`; });
+    document.querySelectorAll(`[data-sb="${q.provider}"]`).forEach((e) => { e.style.width = Math.min(100, q.monthly_limit ? q.used / q.monthly_limit * 100 : 0) + "%"; });
+    if (q.resets_on) { const d = Math.max(0, Math.ceil((new Date(q.resets_on) - new Date()) / 864e5)); days = days == null ? d : Math.min(days, d); }
+  });
+  if (days != null) document.querySelectorAll("[data-reset]").forEach((e) => { e.textContent = days; });
+}
+function paintSettings(s) {
+  let active = 0;
+  PROVIDERS.forEach((p) => {
+    const on = !!s.keys[p.toUpperCase() + "_API_KEY"];
+    if (on) active++;
+    $("rk-" + p).innerHTML = `<i class="dt${on ? "" : " off"}"></i>${on ? "Configured" : "Not set"}`;
+    $("cs-" + p).innerHTML = `<i class="dt${on ? "" : " off"}"></i>${on ? "Connected" : "Not set"}`;
+    $("rl-" + p).textContent = `${s.limits[p]} / month`;
+  });
+  PROVIDERS.forEach((p) => { const on = !!s.keys[p.toUpperCase() + "_API_KEY"]; document.querySelectorAll(`[data-sp="${p}"]`).forEach((e) => e.classList.toggle("off", !on)); });
+  $("sp-all").textContent = active === 3 ? "All connected" : `${active} of 3 connected`;
+  $("a-toggle").classList.toggle("off", !s.flags.push_valid);
+  $("a-valid").checked = s.flags.push_only_valid;
+  $("a-webhook").value = "";
+  $("a-webhook").placeholder = s.webhook_set ? "•••••• (set)" : "https://hooks.zapier.com/...";
+  $("src-active").textContent = `${active} source${active === 1 ? "" : "s"} active`;
+  $("st-src").textContent = active;
+}
+function paintStats(quota, stats) {
+  const sc = stats.status_counts || {}, pc = stats.pipeline_counts || {};
+  const total = Object.values(sc).reduce((a, b) => a + b, 0), valid = sc.valid || 0;
+  const rows = quota.filter((q) => PROVIDERS.includes(q.provider));
+  const used = rows.reduce((a, q) => a + q.used, 0), lim = rows.reduce((a, q) => a + q.monthly_limit, 0);
+  $("st-total").textContent = total; $("st-valid").textContent = valid;
+  $("st-rate").textContent = `${total ? Math.round((valid / total) * 100) : 0}% success rate`;
+  $("st-used").textContent = used; $("st-lim").textContent = lim;
+  $("st-bar").style.width = (lim ? Math.min(100, (used / lim) * 100) : 0) + "%";
+  $("pp-found").textContent = total; $("pp-valid").textContent = valid;
+  $("pp-sent").textContent = ["contacted", "replied", "interested", "closed"].reduce((a, k) => a + (pc[k] || 0), 0);
+  $("pp-replied").textContent = pc.replied || 0;
+}
+document.querySelectorAll(".nav-set").forEach((b) => b.addEventListener("click", () => {
+  document.body.classList.toggle("set");
+  $("side-settings").scrollIntoView({ behavior: "smooth" });
+}));
+const dz = $("dropzone");
+["dragover", "dragenter"].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.add("drag"); }));
+["dragleave", "drop"].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove("drag"); }));
+dz.addEventListener("drop", (e) => {
+  if (!e.dataTransfer.files.length) return;
+  $("csv-file").files = e.dataTransfer.files;
+  $("csv-file").dispatchEvent(new Event("change"));
+});
+document.querySelector(".nav-leads").addEventListener("click", () => {
+  document.querySelector('nav.m [data-tab="dash"]').click();
+  setTimeout(() => $("history-table").scrollIntoView({ behavior: "smooth" }), 200);
+});
+
+// ---------- recent leads (Find Lead screen) ----------
+let recentRows = [], recentTimer = null;
+const AV = ["#a855f7", "#ec4899", "#3b82f6", "#22c55e", "#f59e0b", "#06b6d4"];
+function rel(ts) {
+  if (!ts) return "";
+  if (ts.length <= 10) return ts;
+  const m = Math.max(0, Math.round((Date.now() - new Date(ts)) / 60000));
+  if (m < 1) return "just now"; if (m < 60) return `${m} min ago`;
+  if (m < 1440) return `${Math.floor(m / 60)} hour${m >= 120 ? "s" : ""} ago`;
+  return ts.slice(0, 10);
+}
+async function loadRecent() {
+  try {
+    recentRows = (await api("/api/history?q=" + encodeURIComponent($("rl-q").value.trim()))).filter((r) => r.email || r.status);
+    const cur = $("rl-src").value, srcs = [...new Set(recentRows.map((r) => r.source).filter(Boolean))];
+    $("rl-src").innerHTML = '<option value="">All Sources</option>' + srcs.map((x) => `<option value="${esc(x)}">${esc(cap(x))}</option>`).join("");
+    $("rl-src").value = srcs.includes(cur) ? cur : "";
+    renderRecent();
+  } catch (e) { $("rl-table").innerHTML = `<div class="rl-empty">${esc(e.message)}</div>`; }
+}
+function renderRecent() {
+  const src = $("rl-src").value, rows = recentRows.filter((r) => !src || r.source === src).slice(0, 8);
+  if (!rows.length) { $("rl-table").innerHTML = '<div class="rl-empty">No leads yet — find your first email above.</div>'; return; }
+  const ST = { valid: ["v", "Verified"], risky: ["p", "Pending"], not_found: ["fl", "Not found"] };
+  $("rl-table").innerHTML = `<table><tr><th><input type="checkbox" id="rl-all" aria-label="Select all"></th><th>Name</th><th>Company</th><th>Email</th><th>Source</th><th>Status</th><th>Added</th></tr>${rows.map((r, i) => {
+    const nm = `${r.first_name} ${r.last_name}`.trim(), ini = ((r.first_name[0] || "") + (r.last_name[0] || "")).toUpperCase(), st = ST[r.status] || ["fl", r.status];
+    const comp = r.domain.split(".")[0];
+    return `<tr><td><input type="checkbox" class="rl-ck" data-i="${i}"></td><td><div class="nmc"><span class="ini" style="background:${AV[(nm.length + i) % AV.length]}">${esc(ini)}</span>${esc(nm)}</div></td><td><div class="co"><span class="cob" style="background:${AV[(comp.length * 3) % AV.length]}">${esc(comp[0] || "?").toUpperCase()}</span>${esc(cap(comp))}</div></td><td>${esc(r.email) || "—"} ${r.email ? `<button type="button" class="cp-b" data-copy="${esc(r.email)}" aria-label="Copy email"><svg class="i" viewBox="0 0 24 24"><use href="#i-copy"/></svg></button>` : ""}</td><td>${r.source ? `<span class="src">${PVH(r.source) || ""}${esc(cap(r.source))}</span>` : ""}</td><td><span class="st ${st[0]}">● ${st[1]}</span></td><td>${esc(rel(r.found_at))}</td></tr>`; }).join("")}</table>`;
+  $("rl-table").dataset.shown = JSON.stringify(rows.map((r) => recentRows.indexOf(r)));
+}
+$("rl-table").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-copy]");
+  if (b) { navigator.clipboard && navigator.clipboard.writeText(b.dataset.copy); b.style.color = "#4ade80"; setTimeout(() => { b.style.color = ""; }, 900); }
+  if (e.target.id === "rl-all") document.querySelectorAll(".rl-ck").forEach((c) => { c.checked = e.target.checked; });
+});
+$("rl-q").addEventListener("input", () => { clearTimeout(recentTimer); recentTimer = setTimeout(loadRecent, 250); });
+$("rl-src").addEventListener("change", renderRecent);
+$("rl-export").addEventListener("click", () => {
+  const shown = JSON.parse($("rl-table").dataset.shown || "[]"), picked = [...document.querySelectorAll(".rl-ck:checked")].map((c) => recentRows[shown[+c.dataset.i]]);
+  if (!picked.length) { location.href = "/api/history/export?q=" + encodeURIComponent($("rl-q").value.trim()); return; }
+  const f = ["first_name", "last_name", "domain", "email", "status", "source", "found_at"];
+  const csv = [f.join(",")].concat(picked.map((r) => f.map((k) => `"${String(r[k] ?? "").replace(/"/g, '""')}"`).join(","))).join("\n");
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = "selected_leads.csv"; a.click();
+});
+
+// ---------- automation card (Find Lead screen) ----------
+async function saveFlag(flags, msgEl) {
+  try { await postJson("/api/settings", { flags }); await loadSettings(); } catch (e) { setMsg(msgEl, e.message, "err"); }
+}
+$("a-toggle").addEventListener("click", async () => {
+  const on = $("a-toggle").classList.contains("off");
+  await saveFlag({ push_valid: on }, $("a-msg"));
+  setMsg($("a-msg"), on ? "Auto-push is on." : "Auto-push is off.", "ok");
+});
+$("a-valid").addEventListener("change", () => saveFlag({ push_only_valid: $("a-valid").checked }, $("a-msg")));
+async function saveWebhook() {
+  const v = $("a-webhook").value.trim();
+  if (v) { await postJson("/api/settings", { webhook_url: v }); await loadSettings(); }
+}
+$("a-webhook").addEventListener("change", () => saveWebhook().then(() => setMsg($("a-msg"), "Webhook saved ✅", "ok")).catch((e) => setMsg($("a-msg"), e.message, "err")));
+$("a-test").addEventListener("click", async () => {
+  setMsg($("a-msg"), "Sending test...", "warn");
+  try { await saveWebhook(); const r = await postJson("/api/webhook/test"); setMsg($("a-msg"), `Webhook responded: ${r.info} ✅`, "ok"); }
+  catch (e) { setMsg($("a-msg"), e.message.includes("HTTP") || e.message ? e.message : "Webhook test failed", "err"); }
+});
+
+// ---------- outreach toggle + platform picker ----------
+$("oc-enabled").addEventListener("click", async () => {
+  const on = $("oc-enabled").classList.contains("off");
+  try { await postJson("/api/settings", { outreach: { enabled: on } }); $("oc-enabled").classList.toggle("off", !on); setMsg($("oc-msg"), on ? "Outreach enabled." : "Outreach disabled.", "ok"); }
+  catch (e) { setMsg($("oc-msg"), e.message, "err"); }
+});
+function markPlat() { document.querySelectorAll(".plat").forEach((p) => p.classList.toggle("sel", p.dataset.prov === $("oc-provider").value)); }
+document.querySelectorAll(".plat").forEach((p) => {
+  const go = () => { if (p.dataset.prov === "api") { $("tok-name").scrollIntoView({ behavior: "smooth", block: "center" }); $("tok-name").focus(); } else { $("oc-provider").value = p.dataset.prov; markPlat(); } };
+  p.addEventListener("click", go); p.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
+});
+$("oc-provider").addEventListener("change", markPlat);
+
+// ---------- tutorial ----------
+const TUT = [
+  ["search", "Find a single email", "Enter a first name, last name and company domain (or a LinkedIn URL) and press Find Email. LeadFinder tries free pattern guesses first, then Hunter, Prospeo and Apollo, and verifies the result.", "single"],
+  ["file", "Bulk search with a CSV", "Upload a CSV with first_name, last_name and domain. The job runs on the server in the background, so you can close the tab and come back later.", "csv"],
+  ["dash", "Track credits and results", "The Dashboard shows credits used per provider, how many leads were found, verified or failed, and lets you search, export and re-verify your leads.", "dash"],
+  ["bolt", "Automate it", "Import from a Google Sheet on a schedule, push valid leads to a webhook, Instantly, Smartlead or Lemlist, and create API tokens for your own scripts.", "auto"],
+  ["key", "Add your API keys first", "Open API Keys in the sidebar and add your Reoon key (required for verification) plus at least one finder key, or turn on the free pattern-guess fallback.", null],
+];
+let tutI = 0;
+function showTut() {
+  const [ic, t, p, tab] = TUT[tutI];
+  $("tut-body").innerHTML = `<div class="tsi"><svg class="i" viewBox="0 0 24 24"><use href="#i-${ic}"/></svg></div><h3>${tutI + 1}. ${esc(t)}</h3><p>${esc(p)}</p>`;
+  $("tut-dots").innerHTML = TUT.map((_, i) => `<i class="${i === tutI ? "on" : ""}"></i>`).join("");
+  $("tut-prev").style.visibility = tutI ? "visible" : "hidden";
+  $("tut-next").textContent = tutI === TUT.length - 1 ? "Done" : "Next";
+  $("tut").dataset.tab = tab || "";
+}
+document.querySelectorAll(".tut").forEach((b) => b.addEventListener("click", () => { tutI = 0; showTut(); $("tut").classList.remove("hidden"); $("tut-next").focus(); }));
+$("tut-x").addEventListener("click", () => $("tut").classList.add("hidden"));
+$("tut-prev").addEventListener("click", () => { tutI--; showTut(); });
+$("tut-next").addEventListener("click", () => {
+  if (tutI < TUT.length - 1) { tutI++; showTut(); return; }
+  $("tut").classList.add("hidden");
+  if (!TUT[tutI][3]) { document.body.classList.add("set"); $("side-settings").scrollIntoView({ behavior: "smooth" }); }
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("tut").classList.add("hidden"); });
+$("gsearch").addEventListener("keydown", (e) => { if (e.key === "Enter" && $("gsearch").value.trim()) { $("rl-q").value = $("gsearch").value.trim(); document.querySelector('nav.m [data-tab="single"]').click(); } });
+document.addEventListener("keydown", (e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); $("gsearch").focus(); } });
+loadRecent();

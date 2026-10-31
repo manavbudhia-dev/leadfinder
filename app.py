@@ -171,16 +171,16 @@ def push_webhook(payload, force=False):
 def lead_payload(first, last, domain, email, source):
     return {"event": "lead.valid", "first_name": first, "last_name": last,
             "domain": domain, "email": email, "source": source,
-            "found_at": date.today().isoformat()}
+            "found_at": datetime.now().isoformat(timespec="seconds")}
 
 
 def save_lead(conn, first, last, domain, email, status, source):
     conn.execute(
         "INSERT OR REPLACE INTO leads VALUES (?,?,?,?,?,?,?)",
-        (first, last, domain, email, status, source, date.today().isoformat()),
+        (first, last, domain, email, status, source, datetime.now().isoformat(timespec="seconds")),
     )
     conn.commit()
-    if status == "valid":
+    if status == "valid" or (status == "risky" and os.getenv("PUSH_ONLY_VALID", "1") == "0"):
         ok, info = push_webhook(lead_payload(first, last, domain, email, source))
         if os.getenv("PUSH_VALID") == "1":
             return f"  - webhook push: {'ok' if ok else 'FAIL'} ({info})\n"
@@ -441,12 +441,14 @@ def get_settings():
             for name, _, _, default in lp.PROVIDERS
         },
         "auth": auth_enabled(),
-        "flags": {"pattern_guess": pattern_enabled(), "push_valid": os.getenv("PUSH_VALID") == "1"},
+        "flags": {"pattern_guess": pattern_enabled(), "push_valid": os.getenv("PUSH_VALID") == "1",
+                  "push_only_valid": os.getenv("PUSH_ONLY_VALID", "1") != "0"},
         "webhook_set": bool(os.getenv("WEBHOOK_URL", "").strip()),
         "outreach": {
             "provider": os.getenv("OUTREACH_PROVIDER", "instantly"),
             "campaign": os.getenv("OUTREACH_CAMPAIGN", ""),
             "key_set": bool(os.getenv("OUTREACH_API_KEY", "").strip()),
+            "enabled": os.getenv("OUTREACH_ENABLED", "1") != "0",
         },
     })
 
@@ -472,7 +474,8 @@ def save_settings():
                 return jsonify({"error": f"{name} limit ek number hona chahiye."}), 400
             os.environ[limit_env] = str(n)
             persisted[limit_env] = str(n)
-    for flag, env in [("pattern_guess", "PATTERN_GUESS"), ("push_valid", "PUSH_VALID")]:
+    for flag, env in [("pattern_guess", "PATTERN_GUESS"), ("push_valid", "PUSH_VALID"),
+                      ("push_only_valid", "PUSH_ONLY_VALID")]:
         if flag in body.get("flags", {}):
             val = "1" if body["flags"][flag] else "0"
             os.environ[env] = val
@@ -488,10 +491,14 @@ def save_settings():
         persisted["WEBHOOK_URL"] = url
     oc = body.get("outreach", {})
     if "provider" in oc:
-        if oc["provider"] not in ("instantly", "smartlead"):
-            return jsonify({"error": "Outreach provider instantly/smartlead hona chahiye."}), 400
+        if oc["provider"] not in ("instantly", "smartlead", "lemlist"):
+            return jsonify({"error": "Outreach provider instantly/smartlead/lemlist hona chahiye."}), 400
         os.environ["OUTREACH_PROVIDER"] = oc["provider"]
         persisted["OUTREACH_PROVIDER"] = oc["provider"]
+    if "enabled" in oc:
+        val = "1" if oc["enabled"] else "0"
+        os.environ["OUTREACH_ENABLED"] = val
+        persisted["OUTREACH_ENABLED"] = val
     if "campaign" in oc:
         val = str(oc["campaign"]).strip()
         if val:
@@ -726,11 +733,19 @@ def push_valid():
     return jsonify({"pushed": pushed, "failed": failed, "total": len(rows)})
 
 
+@app.post("/api/webhook/test")
+def webhook_test():
+    ok, info = push_webhook({"event": "webhook.test", "first_name": "Test", "last_name": "Lead",
+                             "domain": "example.com", "email": "test@example.com", "source": "test",
+                             "found_at": datetime.now().isoformat(timespec="seconds")}, force=True)
+    return jsonify({"ok": ok, "info": info, **({} if ok else {"error": info})}), (200 if ok else 400)
+
+
 @app.post("/api/outreach/push")
 def outreach_push():
     rows = [r for r in history_rows("", "valid") if r["email"]]
     ok, info = outreach.push_leads(rows)
-    return jsonify({"ok": ok, "info": info, "total": len(rows)}), (200 if ok else 400)
+    return jsonify({"ok": ok, "info": info, "total": len(rows), **({} if ok else {"error": info})}), (200 if ok else 400)
 
 
 # ------------------------------------------------------------------ schedules API
@@ -837,7 +852,8 @@ def stats():
             "ON l.first_name=m.first_name AND l.last_name=m.last_name AND l.domain=m.domain "
             "GROUP BY COALESCE(m.pipeline,'')")}
         daily = [dict(r) for r in conn.execute(
-            "SELECT found_at, status, COUNT(*) c FROM leads GROUP BY found_at, status ORDER BY found_at DESC LIMIT 90")]
+            "SELECT substr(found_at,1,10) found_at, status, COUNT(*) c FROM leads GROUP BY substr(found_at,1,10), status "
+            "ORDER BY substr(found_at,1,10) DESC LIMIT 270")]
     finally:
         conn.close()
     return jsonify({"status_counts": status_counts, "pipeline_counts": pipeline_counts, "daily": daily})

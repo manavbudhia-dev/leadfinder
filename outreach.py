@@ -11,6 +11,8 @@ def push_leads(leads):
     provider = os.getenv("OUTREACH_PROVIDER", "instantly").lower()
     key = os.getenv("OUTREACH_API_KEY", "").strip()
     campaign = os.getenv("OUTREACH_CAMPAIGN", "").strip()
+    if os.getenv("OUTREACH_ENABLED", "1") == "0":
+        return False, "Outreach disabled hai (Automation tab mein Enabled on karo)."
     if not key or not campaign:
         return False, "Outreach API key aur campaign ID set karo (Automation tab)."
     if not leads:
@@ -39,6 +41,19 @@ def push_leads(leads):
             },
             timeout=TIMEOUT,
         )
+    elif provider == "lemlist":
+        sent = 0
+        for x in leads:
+            r = requests.post(
+                f"https://api.lemlist.com/api/campaigns/{campaign}/leads/{x['email']}",
+                auth=("", key),
+                json={"firstName": x["first_name"], "lastName": x["last_name"], "companyDomain": x["domain"]},
+                timeout=TIMEOUT,
+            )
+            if not r.ok:
+                return False, f"HTTP {r.status_code}: {r.text[:200]} ({sent} pehle push hue)"
+            sent += 1
+        return True, f"{sent} leads lemlist campaign mein push ho gaye."
     else:
         return False, f"Unknown outreach provider: {provider}"
 

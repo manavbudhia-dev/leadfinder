@@ -1,207 +1,162 @@
 <!DOCTYPE html>
-<html lang="hi">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lead Finder</title>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <div class="layout">
-    <aside class="sidebar">
-      <h2>🔑 API Keys</h2>
-      <p class="hint">Keys sirf tumhare server par rehti hain. Jo service use nahi kar rahe, khali chhod do.</p>
-      <label>Reoon (verify, zaruri)
-        <input type="password" id="key-REOON_API_KEY" autocomplete="off">
-      </label>
-      <label>Hunter
-        <input type="password" id="key-HUNTER_API_KEY" autocomplete="off">
-      </label>
-      <label>Prospeo
-        <input type="password" id="key-PROSPEO_API_KEY" autocomplete="off">
-      </label>
-      <label>Apollo
-        <input type="password" id="key-APOLLO_API_KEY" autocomplete="off">
-      </label>
-
-      <hr>
-      <h2>📊 Monthly limits</h2>
-      <p class="hint">Apne dashboard se asli credits dekh kar daalo.</p>
-      <label>Hunter limit
-        <input type="number" id="lim-hunter" min="0" value="50">
-      </label>
-      <label>Prospeo limit
-        <input type="number" id="lim-prospeo" min="0" value="75">
-      </label>
-      <label>Apollo limit
-        <input type="number" id="lim-apollo" min="0" value="50">
-      </label>
-
-      <hr>
-      <h2>⚙️ Options</h2>
-      <label class="check">
-        <input type="checkbox" id="flag-pattern" checked>
-        Pattern-guess fallback (free, providers se pehle)
-      </label>
-      <label>Webhook URL (Zapier/Make/Slack)
-        <input type="password" id="webhook-url" autocomplete="off">
-      </label>
-      <label class="check">
-        <input type="checkbox" id="flag-push">
-        Valid leads auto-push webhook par
-      </label>
-
-      <button id="save-settings" class="primary">💾 Save settings</button>
-      <p id="settings-msg" class="msg"></p>
-      <button id="logout-btn" class="hidden">Logout</button>
-    </aside>
-
-    <main>
-      <h1>📧 Lead Finder</h1>
-      <p class="hint">Naam + company domain daalo → email dhundo → verify karo</p>
-      <div id="quota-alerts"></div>
-
-      <nav class="tabs">
-        <button class="tab active" data-tab="single">1️⃣ Ek lead</button>
-        <button class="tab" data-tab="csv">2️⃣ CSV se bahut saare</button>
-        <button class="tab" data-tab="dash">3️⃣ Dashboard</button>
-        <button class="tab" data-tab="auto">4️⃣ Automation</button>
-      </nav>
-
-      <section id="tab-single" class="panel active">
-        <div class="row">
-          <label>First name<input id="first" placeholder="Patrick"></label>
-          <label>Last name<input id="last" placeholder="Collison"></label>
-          <label>Company domain<input id="domain" placeholder="stripe.com"></label>
-        </div>
-        <div class="row">
-          <label>LinkedIn URL (optional — naam/domain ki jagah, Prospeo/Apollo se)
-            <input id="linkedin" placeholder="https://www.linkedin.com/in/...">
-          </label>
-        </div>
-        <button id="find-btn" class="primary">🔍 Email dhundo</button>
-        <p id="single-msg" class="msg"></p>
-        <div id="single-result" class="card hidden"></div>
-        <details id="single-log-wrap" class="hidden">
-          <summary>Kya hua? (details)</summary>
-          <pre id="single-log"></pre>
-        </details>
-      </section>
-
-      <section id="tab-csv" class="panel">
-        <p>CSV mein ye 3 columns chahiye: <code>first_name</code>, <code>last_name</code>, <code>domain</code>.
-          Batch server par background mein chalta hai — tab band karoge to bhi chalta rahega.</p>
-        <a class="btn" href="/api/sample.csv">⬇️ Sample CSV download karo</a>
-        <div class="row top">
-          <input type="file" id="csv-file" accept=".csv,text/csv">
-        </div>
-        <p id="csv-msg" class="msg"></p>
-        <div id="csv-mapping" class="card hidden">
-          <h3>Columns map karo</h3>
-          <p class="hint">Tumhari CSV ke headers alag hain — batao kaunsa column kya hai:</p>
-          <div class="row">
-            <label>first_name →<select id="map-first"></select></label>
-            <label>last_name →<select id="map-last"></select></label>
-            <label>domain →<select id="map-domain"></select></label>
-          </div>
-          <button id="map-apply">✅ Mapping apply karo</button>
-        </div>
-        <div id="csv-preview" class="hidden"></div>
-        <button id="batch-btn" class="primary hidden">▶️ Start job</button>
-
-        <div id="job-panel" class="hidden">
-          <h3 id="job-title">Job</h3>
-          <div class="bar"><div id="bar-fill"></div></div>
-          <p id="bar-text"></p>
-          <p id="job-status" class="msg"></p>
-          <div class="row">
-            <label class="check"><input type="checkbox" id="retry-notfound"> Not-found leads bhi retry karo</label>
-            <button id="resume-btn" class="hidden">🔄 Resume / Retry</button>
-            <button id="download-btn" class="primary hidden">⬇️ Results download karo</button>
-          </div>
-          <div id="batch-table"></div>
-        </div>
-
-        <h3>Recent jobs</h3>
-        <div id="jobs-list"></div>
-      </section>
-
-      <section id="tab-dash" class="panel">
-        <div class="charts">
-          <div id="chart-quota" class="chart"></div>
-          <div id="chart-status" class="chart"></div>
-          <div id="chart-pipeline" class="chart"></div>
-          <div id="chart-daily" class="chart"></div>
-        </div>
-
-        <h3>Credits ka hisaab</h3>
-        <div id="quota-table"></div>
-        <p class="hint">Ye hisaab app ka apna estimate hai. Kabhi kabhi asli dashboard se milaa lo.</p>
-
-        <h3>Ab tak ke leads</h3>
-        <div class="row">
-          <input id="hist-q" placeholder="Search naam / domain / email...">
-          <select id="hist-status">
-            <option value="">Sab status</option>
-            <option value="valid">✅ Valid</option>
-            <option value="risky">⚠️ Risky</option>
-            <option value="not_found">❌ Not found</option>
-          </select>
-          <select id="hist-pipeline">
-            <option value="">Sab pipeline</option>
-            <option value="contacted">Contacted</option>
-            <option value="replied">Replied</option>
-            <option value="interested">Interested</option>
-            <option value="closed">Closed</option>
-          </select>
-          <button id="hist-export">⬇️ Export CSV</button>
-          <button id="hist-reverify">🔁 Risky re-verify (job)</button>
-          <button id="hist-push">📤 Valid leads push karo</button>
-        </div>
-        <p id="hist-msg" class="msg"></p>
-        <div id="history-table"></div>
-      </section>
-
-      <section id="tab-auto" class="panel">
-        <h3>📅 Scheduled runs</h3>
-        <p class="hint">CSV URL (Google Sheet ka "publish to web → CSV" link bhi) se auto-import + find.
-          Sheet ID doge to results wapas Google Sheet mein append honge (service account env mein set karo).</p>
-        <div class="row">
-          <input id="sch-name" placeholder="Naam (e.g. Weekly leads)">
-          <input id="sch-url" placeholder="https://... CSV URL">
-          <input id="sch-interval" type="number" min="1" value="24" title="Interval (hours)">
-          <input id="sch-sheet" placeholder="Google Sheet ID (optional)">
-          <button id="sch-add" class="primary">➕ Add schedule</button>
-        </div>
-        <p id="sch-msg" class="msg"></p>
-        <div id="sch-list"></div>
-
-        <h3>📨 Outreach (Instantly / Smartlead)</h3>
-        <div class="row">
-          <select id="oc-provider">
-            <option value="instantly">Instantly</option>
-            <option value="smartlead">Smartlead</option>
-          </select>
-          <input id="oc-campaign" placeholder="Campaign ID">
-          <input id="oc-key" type="password" placeholder="API key">
-          <button id="oc-save">💾 Save</button>
-          <button id="oc-push" class="primary">🚀 Valid leads campaign mein push karo</button>
-        </div>
-        <p id="oc-msg" class="msg"></p>
-
-        <h3>🔑 API tokens (scripts/tools ke liye)</h3>
-        <p class="hint">Token se API access: <code>Authorization: Bearer &lt;token&gt;</code>. Token sirf ek baar dikhega.</p>
-        <div class="row">
-          <input id="tok-name" placeholder="Token naam (e.g. my-script)">
-          <button id="tok-create" class="primary">➕ Generate token</button>
-        </div>
-        <p id="tok-msg" class="msg"></p>
-        <pre id="tok-show" class="hidden"></pre>
-        <div id="tok-list"></div>
-      </section>
-    </main>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LeadFinder</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="style.css"></head>
+<body data-tab="single">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol><symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></symbol><symbol id="i-dash" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="m7 15 3-4 3 3 4-6"/></symbol><symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></symbol><symbol id="i-leads" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/></symbol><symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M16 7l3 3"/></symbol><symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></symbol><symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol><symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2 20a7 7 0 0 1 14 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 4 6"/></symbol><symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol><symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8M10 20a2 2 0 0 0 4 0"/></symbol><symbol id="i-play" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m10 8 6 4-6 4z"/></symbol><symbol id="i-up" viewBox="0 0 24 24"><path d="M12 16V4m-5 5 5-5 5 5M4 20h16"/></symbol><symbol id="i-dl" viewBox="0 0 24 24"><path d="M12 4v12m-5-5 5 5 5-5M4 20h16"/></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol><symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></symbol><symbol id="i-send" viewBox="0 0 24 24"><path d="m21 3-9 18-2-8-8-2z"/></symbol><symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol><symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol><symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol><symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol><symbol id="i-ref" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14-4L4 9M4 4v5h5M4 13a8 8 0 0 0 14 4l2-2M20 20v-5h-5"/></symbol><symbol id="i-dots" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="12" cy="19" r="1.2"/></symbol><symbol id="i-crown" viewBox="0 0 24 24"><path d="m3 8 4 4 5-7 5 7 4-4-2 11H5z"/></symbol><symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol><symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></symbol><symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10c1 1 1 2 1 3h6c0-1 0-2 1-3a6 6 0 0 0-4-10z"/></symbol><symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></symbol><symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></symbol><symbol id="i-bars" viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></symbol><symbol id="i-pie" viewBox="0 0 24 24"><path d="M12 3v9h9a9 9 0 1 1-9-9z"/></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol><symbol id="i-eyeo" viewBox="0 0 24 24"><path d="M3 3l18 18M10 6a9 9 0 0 1 12 6 12 12 0 0 1-3 4M6 8a12 12 0 0 0-4 4s4 7 10 7a9 9 0 0 0 4-1"/></symbol><symbol id="i-star" viewBox="0 0 24 24"><path d="M12 2l2.5 6.5L21 9l-5 4.5L17.5 21 12 17l-5.500 4L8 13.500 3 9l6.500-.5z"/></symbol><symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18a4.500 4.500 0 0 1-.5-9A6 6 0 0 1 18 9a4.500 4.500 0 0 1-.5 9"/><path d="m9 13 3-3 3 3M12 10v9"/></symbol><symbol id="i-hu" viewBox="0 0 24 24"><path d="M3 5l8 3 2-4 2 4 6-1-3 6 3 6-9-2-2 4-2-4-5 1 2-6z"/></symbol><symbol id="i-ap" viewBox="0 0 24 24"><path d="M12 4 4 20h3.500l1.500-3.500h6L16.500 20H20z"/></symbol></svg>
+<div class="app">
+<aside class="sidebar">
+ <div class="logo"><div class="lg"><svg class="i" viewBox="0 0 24 24"><use href="#i-bolt"/></svg></div><div><b>LeadFinder</b><small>Find anyone’s professional email</small></div></div>
+ <nav class="m">
+  <button class="tab active" data-tab="single"><svg class="i" viewBox="0 0 24 24"><use href="#i-search"/></svg>Find Lead</button>
+  <button class="tab" data-tab="csv"><svg class="i" viewBox="0 0 24 24"><use href="#i-file"/></svg>Bulk Search (CSV)</button>
+  <button class="tab" data-tab="dash"><svg class="i" viewBox="0 0 24 24"><use href="#i-dash"/></svg>Dashboard</button>
+  <button class="tab" data-tab="auto"><svg class="i" viewBox="0 0 24 24"><use href="#i-bolt"/></svg>Automation</button>
+  <button type="button" class="nav-leads"><svg class="i" viewBox="0 0 24 24"><use href="#i-leads"/></svg>Leads</button>
+  <button type="button" class="nav-set"><svg class="i" viewBox="0 0 24 24"><use href="#i-key"/></svg>API Keys</button>
+  <button type="button" class="nav-set"><svg class="i" viewBox="0 0 24 24"><use href="#i-gear"/></svg>Settings</button>
+ </nav>
+ <div class="sbx">
+  <div class="sc" id="side-usage"><h4><span><svg class="i" viewBox="0 0 24 24"><use href="#i-bolt"/></svg> Monthly Usage</span></h4><p class="s">Resets in <span data-reset>–</span> days</p>
+   <div class="lm"><span class="pv hu"><svg viewBox="0 0 24 24"><use href="#i-hu"/></svg></span><div class="nm"><div class="lr"><span>Hunter</span><span class="v" data-su="hunter">– / –</span></div><div class="bar"><i data-sb="hunter" style="background:#2f6bff"></i></div></div></div>
+   <div class="lm"><span class="pv pr">P</span><div class="nm"><div class="lr"><span>Prospeo</span><span class="v" data-su="prospeo">– / –</span></div><div class="bar"><i data-sb="prospeo" style="background:#a855f7"></i></div></div></div>
+   <div class="lm"><span class="pv ap"><svg viewBox="0 0 24 24"><use href="#i-ap"/></svg></span><div class="nm"><div class="lr"><span>Apollo</span><span class="v" data-su="apollo">– / –</span></div><div class="bar"><i data-sb="apollo" style="background:#22c55e"></i></div></div></div>
   </div>
-  <script src="vendor/plotly-basic.min.js"></script>
-  <script src="app.js"></script>
-</body>
-</html>
+  <div class="sc" id="side-prov"><h4>API Providers <small class="allc"><i class="dt"></i> <span id="sp-all">All connected</span></small></h4><div class="kv"><span class="pv hu"><svg viewBox="0 0 24 24"><use href="#i-hu"/></svg></span>Hunter<span class="ok"><i class="dt off" data-sp="hunter"></i></span></div><div class="kv"><span class="pv pr">P</span>Prospeo<span class="ok"><i class="dt off" data-sp="prospeo"></i></span></div><div class="kv"><span class="pv ap"><svg viewBox="0 0 24 24"><use href="#i-ap"/></svg></span>Apollo<span class="ok"><i class="dt off" data-sp="apollo"></i></span></div></div>
+  <div class="sc" id="side-cred"><h4>Monthly Limits<button type="button" class="btn sm nav-set">View All</button></h4><p class="s">Resets in <span data-reset>–</span> days</p><div class="lm"><span class="pv hu"><svg viewBox="0 0 24 24"><use href="#i-hu"/></svg></span><div class="nm"><div class="lr"><span>Hunter</span><span class="v" data-su="hunter">– / –</span></div><div class="bar"><i data-sb="hunter" style="background:#2f6bff"></i></div></div></div><div class="lm"><span class="pv pr">P</span><div class="nm"><div class="lr"><span>Prospeo</span><span class="v" data-su="prospeo">– / –</span></div><div class="bar"><i data-sb="prospeo" style="background:#a855f7"></i></div></div></div><div class="lm"><span class="pv ap"><svg viewBox="0 0 24 24"><use href="#i-ap"/></svg></span><div class="nm"><div class="lr"><span>Apollo</span><span class="v" data-su="apollo">– / –</span></div><div class="bar"><i data-sb="apollo" style="background:#22c55e"></i></div></div></div></div>
+  <div class="sc cp" id="side-settings">
+   <h4><svg class="i" viewBox="0 0 24 24"><use href="#i-key"/></svg> API Keys</h4><p class="mini">Keys sahin server par rehni chahiye. Jo service use kar rahe, wahi fill karo.</p>
+   <label class="f">Reoon (verification, required)</label><div class="in"><input type="password" id="key-REOON_API_KEY" autocomplete="off" placeholder="Enter API key"></div>
+   <label class="f">Hunter</label><div class="in"><input type="password" id="key-HUNTER_API_KEY" autocomplete="off" placeholder="Enter API key"></div>
+   <label class="f">Prospeo</label><div class="in"><input type="password" id="key-PROSPEO_API_KEY" autocomplete="off" placeholder="Enter API key"></div>
+   <label class="f">Apollo</label><div class="in"><input type="password" id="key-APOLLO_API_KEY" autocomplete="off" placeholder="Enter API key"></div>
+   <h4 class="gap"><svg class="i" viewBox="0 0 24 24"><use href="#i-bars"/></svg> Monthly Limits</h4><p class="mini">Apne dashboard se asli credits dekh kar daalo.</p>
+   <div class="lm"><span class="pv hu"><svg viewBox="0 0 24 24"><use href="#i-hu"/></svg></span><span class="nm">Hunter limit</span><div class="in w"><input type="number" id="lim-hunter" min="0" value="50"></div></div>
+   <div class="lm"><span class="pv pr">P</span><span class="nm">Prospeo limit</span><div class="in w"><input type="number" id="lim-prospeo" min="0" value="75"></div></div>
+   <div class="lm"><span class="pv ap"><svg viewBox="0 0 24 24"><use href="#i-ap"/></svg></span><span class="nm">Apollo limit</span><div class="in w"><input type="number" id="lim-apollo" min="0" value="50"></div></div>
+   <h4 class="gap"><svg class="i" viewBox="0 0 24 24"><use href="#i-gear"/></svg> Options</h4>
+   <label class="check"><input type="checkbox" id="flag-pattern" checked><span>Pattern-guess fallback<br><small>(free providers se pehle)</small></span></label>
+   <label class="f">Webhook URL (Zapier/Make/Slack)</label><div class="in"><input type="password" id="webhook-url" autocomplete="off" placeholder="https://hooks.zapier.com/..."></div>
+   <label class="check"><input type="checkbox" id="flag-push"><span>Valid leads auto-push webhook par</span></label>
+   <button id="save-settings" class="btn p c"><svg class="i" viewBox="0 0 24 24"><use href="#i-file"/></svg> Save Settings</button>
+   <p id="settings-msg" class="msg"></p>
+  </div>
+  <button class="upb" type="button"><svg class="i" viewBox="0 0 24 24"><use href="#i-crown"/></svg> Upgrade Plan</button>
+  <button id="logout-btn" class="btn hidden c">Logout</button>
+ </div>
+</aside>
+<main>
+ <div class="top"><div class="srch"><svg class="i" viewBox="0 0 24 24"><use href="#i-search"/></svg><input id="gsearch" placeholder="Search leads, domains, or emails..."><span class="kb">Ctrl K</span></div>
+  <div class="tr"><div class="bell"><svg class="i" viewBox="0 0 24 24"><use href="#i-bell"/></svg></div><div class="usr"><div class="av">MB</div>Manav Budhia <svg class="i" viewBox="0 0 24 24"><use href="#i-down"/></svg></div></div></div>
+ <div class="pg">
+  <div id="quota-alerts"></div>
+
+  <section id="tab-single" class="panel active">
+   <div class="hd"><div><h1>Find Professional Emails</h1><p>Get verified business emails using multiple data sources (Hunter, Prospeo, Apollo)</p></div><button type="button" class="btn ol tut"><svg class="i" viewBox="0 0 24 24"><use href="#i-play"/></svg> Watch Tutorial</button></div>
+   <div class="cols"><div class="stk">
+    <div class="chips">
+     <div class="chip"><span class="pv hu"><svg viewBox="0 0 24 24"><use href="#i-hu"/></svg></span>Hunter<em id="cs-hunter"><i class="dt off"></i>Not set</em></div>
+     <div class="chip"><span class="pv pr">P</span>Prospeo<em id="cs-prospeo"><i class="dt off"></i>Not set</em></div>
+     <div class="chip"><span class="pv ap"><svg viewBox="0 0 24 24"><use href="#i-ap"/></svg></span>Apollo<em id="cs-apollo"><i class="dt off"></i>Not set</em></div>
+     <div class="pill"><svg class="i" viewBox="0 0 24 24"><use href="#i-bolt"/></svg> <span id="src-active">0 sources active</span></div></div>
+    <div class="card">
+     <div class="tabs"><button class="tab active" data-tab="single"><svg class="i" viewBox="0 0 24 24"><use href="#i-user"/></svg>Single Lead</button><button class="tab" data-tab="csv"><svg class="i" viewBox="0 0 24 24"><use href="#i-file"/></svg>CSV / Bulk Search</button><button class="tab" data-tab="dash"><svg class="i" viewBox="0 0 24 24"><use href="#i-clock"/></svg>Recent Searches</button></div>
+     <div class="fm">
+      <div><label class="f">First name</label><div class="in"><svg class="i" viewBox="0 0 24 24"><use href="#i-user"/></svg><input id="first" placeholder="Patrick"></div></div>
+      <div><label class="f">Last name</label><div class="in"><svg class="i" viewBox="0 0 24 24"><use href="#i-user"/></svg><input id="last" placeholder="Collison"></div></div>
+      <div><label class="f">Company domain</label><div class="in"><svg class="i" viewBox="0 0 24 24"><use href="#i-db"/></svg><input id="domain" placeholder="stripe.com"></div></div>
+      <div class="s2"><label class="f">LinkedIn URL (optional)</label><div class="in"><svg class="i" viewBox="0 0 24 24"><use href="#i-link"/></svg><input id="linkedin" placeholder="https://www.linkedin.com/in/..."></div></div>
+      <button id="find-btn" class="btn p go"><svg class="i" viewBox="0 0 24 24"><use href="#i-search"/></svg> Find Email →</button>
+     </div>
+     <div class="ft">We’ll search across: <span class="tag"><span class="pv hu"><svg viewBox="0 0 24 24"><use href="#i-hu"/></svg></span>Hunter</span><span class="tag"><span class="pv pr">P</span>Prospeo</span><span class="tag"><span class="pv ap"><svg viewBox="0 0 24 24"><use href="#i-ap"/></svg></span>Apollo</span><span class="vf"><span class="gr"><svg class="i" viewBox="0 0 24 24"><use href="#i-shield"/></svg></span>Verified results with high accuracy</span></div>
+     <p id="single-msg" class="msg"></p>
+     <div id="single-result" class="card hidden"></div>
+     <details id="single-log-wrap" class="hidden"><summary>What happened? (details)</summary><pre id="single-log"></pre></details>
+    </div><div class="card" id="recent"><div class="tbl-h"><h3><svg class="i" viewBox="0 0 24 24"><use href="#i-user"/></svg><span>Recent Leads<div class="sub">Your latest email discoveries</div></span></h3><div class="r"><div class="in"><svg class="i" viewBox="0 0 24 24"><use href="#i-search"/></svg><input id="rl-q" placeholder="Search leads..."></div><div class="in sel"><select id="rl-src"><option value="">All Sources</option></select><svg class="i" viewBox="0 0 24 24"><use href="#i-down"/></svg></div><button type="button" id="rl-export" class="btn ol"><svg class="i" viewBox="0 0 24 24"><use href="#i-dl"/></svg> Export CSV</button></div></div><div class="tw" id="rl-table"><div class="empty"><div>No leads yet — find your first email above.</div></div></div></div></div>
+    <div class="stk">
+     <div class="card"><div class="rowh"><h3><svg class="i" viewBox="0 0 24 24"><use href="#i-key"/></svg>API Keys</h3><button type="button" class="btn sm nav-set">Manage</button></div>
+      <div class="kv"><span class="pv hu"><svg viewBox="0 0 24 24"><use href="#i-hu"/></svg></span>Hunter<span class="ok" id="rk-hunter">–</span></div><div class="kv"><span class="pv pr">P</span>Prospeo<span class="ok" id="rk-prospeo">–</span></div><div class="kv"><span class="pv ap"><svg viewBox="0 0 24 24"><use href="#i-ap"/></svg></span>Apollo<span class="ok" id="rk-apollo">–</span></div></div>
+     <div class="card"><div class="rowh"><h3><svg class="i" viewBox="0 0 24 24"><use href="#i-bars"/></svg>Usage Limits</h3><button type="button" class="btn sm nav-set">Edit Limits</button></div>
+      <div class="kv"><span class="pv hu"><svg viewBox="0 0 24 24"><use href="#i-hu"/></svg></span>Hunter limit<b id="rl-hunter">–</b></div><div class="kv"><span class="pv pr">P</span>Prospeo limit<b id="rl-prospeo">–</b></div><div class="kv"><span class="pv ap"><svg viewBox="0 0 24 24"><use href="#i-ap"/></svg></span>Apollo limit<b id="rl-apollo">–</b></div></div>
+     <div class="card"><div class="rowh"><h3><svg class="i" viewBox="0 0 24 24"><use href="#i-bolt"/></svg>Automation</h3><button type="button" class="tog" id="a-toggle" role="switch" aria-label="Auto-push valid leads"></button></div><p class="sub" style="color:#cfd5f5">Auto-save verified leads<br><span style="color:var(--mu)">Automatically push valid leads to your webhook or integrations.</span></p><label class="f" style="margin-top:14px">Webhook URL (Zapier/Make/Slack)</label><div class="in"><svg class="i" viewBox="0 0 24 24"><use href="#i-link"/></svg><input id="a-webhook" type="password" autocomplete="off" placeholder="https://hooks.zapier.com/..."></div><label class="check"><input type="checkbox" id="a-valid" checked>Only push verified leads</label><button type="button" id="a-test" class="btn c" style="background:#121a4c"><svg class="i" viewBox="0 0 24 24"><use href="#i-send"/></svg> Test Webhook</button><p id="a-msg" class="msg"></p></div>
+    </div></div>
+  </section>
+
+  <section id="tab-csv" class="panel">
+   <div class="hd"><div><h1>CSV Import</h1><p>Upload a CSV file with first name, last name and domain to find and verify professional emails in bulk.</p></div><button type="button" class="btn ol tut"><svg class="i" viewBox="0 0 24 24"><use href="#i-play"/></svg> Watch Tutorial</button></div>
+   <div class="tabs steps"><button class="tab" data-tab="single"><span class="n">1</span>Find Lead</button><button class="tab active" data-tab="csv"><span class="n">2</span>CSV Import</button><button class="tab" data-tab="dash"><span class="n">3</span>Dashboard</button><button class="tab" data-tab="auto"><span class="n">4</span>Automation</button></div>
+   <div class="card"><div class="req">
+    <label class="upl" for="csv-file" id="dropzone"><span class="big-i"><svg class="i" viewBox="0 0 24 24"><use href="#i-cloud"/></svg></span><h4>Upload CSV File</h4><p>Drag and drop your file here, or click to browse</p><span class="btn p"><svg class="i" viewBox="0 0 24 24"><use href="#i-up"/></svg> Choose CSV File</span><small>Supports CSV format only • Max 10,000 rows • Columns: first_name, last_name, domain</small><a class="lnk" href="/api/sample.csv"><svg class="i" viewBox="0 0 24 24"><use href="#i-dl"/></svg> Download Sample CSV</a><input type="file" id="csv-file" accept=".csv,text/csv" class="sr"></label>
+    <div><h3><svg class="i" viewBox="0 0 24 24"><use href="#i-file"/></svg>CSV Requirements</h3><p class="sub">Your CSV file must have these 3 columns:</p>
+     <div class="cc"><div><code>first_name</code>e.g. John</div><div><code>last_name</code>e.g. Doe</div><div><code>domain</code>e.g. company.com</div></div><hr>
+     <h3 class="tipt"><span class="ye"><svg class="i" viewBox="0 0 24 24"><use href="#i-bulb"/></svg></span>Tips</h3>
+     <div class="tip"><svg class="i" viewBox="0 0 24 24"><use href="#i-check"/></svg>Use only one sheet in the CSV file</div><div class="tip"><svg class="i" viewBox="0 0 24 24"><use href="#i-check"/></svg>Remove duplicate entries</div><div class="tip"><svg class="i" viewBox="0 0 24 24"><use href="#i-check"/></svg>Maximum 10,000 rows per file</div><div class="tip"><svg class="i" viewBox="0 0 24 24"><use href="#i-check"/></svg>File should be in CSV format (UTF-8)</div></div>
+   </div>
+   <p id="csv-msg" class="msg"></p>
+   <div id="csv-mapping" class="card hidden"><h3>Map columns</h3><p class="hint">Your CSV headers differ — tell us which column is which:</p>
+    <div class="row"><label>first_name →<select id="map-first"></select></label><label>last_name →<select id="map-last"></select></label><label>domain →<select id="map-domain"></select></label></div>
+    <button id="map-apply" class="btn"><svg class="i" viewBox="0 0 24 24"><use href="#i-check"/></svg> Apply mapping</button></div>
+   <div id="csv-preview" class="hidden"></div>
+   <button id="batch-btn" class="btn p hidden"><svg class="i" viewBox="0 0 24 24"><use href="#i-play"/></svg> Start job</button>
+   <div id="job-panel" class="hidden"><h3 id="job-title">Job</h3><div class="bar big"><div id="bar-fill"></div></div><p id="bar-text"></p><p id="job-status" class="msg"></p>
+    <div class="row"><label class="check"><input type="checkbox" id="retry-notfound"> Retry not-found leads too</label><button id="resume-btn" class="btn hidden"><svg class="i" viewBox="0 0 24 24"><use href="#i-ref"/></svg> Resume / Retry</button><button id="download-btn" class="btn p hidden"><svg class="i" viewBox="0 0 24 24"><use href="#i-dl"/></svg> Download results</button></div>
+    <div id="batch-table"></div></div></div>
+   <div class="card"><h3><svg class="i" viewBox="0 0 24 24"><use href="#i-file"/></svg><span>Recent CSV Jobs<div class="sub">Track the status and results of your bulk searches.</div></span></h3><div id="jobs-list"></div></div>
+  </section>
+
+  <section id="tab-dash" class="panel">
+   <div class="hd"><div><h1>Dashboard</h1><p>Track usage, leads and performance across all data sources.</p></div><div class="hr"><div class="in sel rng"><svg class="i" viewBox="0 0 24 24"><use href="#i-cal"/></svg><select id="rng"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option></select><svg class="i" viewBox="0 0 24 24"><use href="#i-down"/></svg></div><button class="btn p tab" data-tab="single"><svg class="i" viewBox="0 0 24 24"><use href="#i-plus"/></svg> Find New Lead</button></div></div>
+   <div class="stats">
+    <div class="stat st1"><div class="t"><span class="ic" style="background:#4f46e5"><svg class="i" viewBox="0 0 24 24"><use href="#i-users"/></svg></span><span><small>Total Leads</small><div class="big" id="st-total">0</div></span></div></div>
+    <div class="stat"><div class="t"><span class="ic" style="background:#16a34a"><svg class="i" viewBox="0 0 24 24"><use href="#i-mail"/></svg></span><span><small>Verified Emails</small><div class="big" id="st-valid">0</div></span></div><div class="up2" id="st-rate">0% success rate</div></div>
+    <div class="stat"><div class="t"><span class="ic" style="background:#f97316"><svg class="i" viewBox="0 0 24 24"><use href="#i-pie"/></svg></span><span><small>Credits Used</small><div class="big"><span id="st-used">0</span> <span class="mu">/ <span id="st-lim">0</span></span></div></span></div><div class="bar"><i id="st-bar" style="background:linear-gradient(90deg,#5b45f2,#8b5cf6)"></i></div></div>
+    <div class="stat"><small>Active Sources</small><div class="t"><span class="ic" style="background:#e11d48"><svg class="i" viewBox="0 0 24 24"><use href="#i-db"/></svg></span><div class="big"><span id="st-src">0</span> <span class="mu">/ 3</span></div></div><div class="chips g8"><span class="pv hu"><svg viewBox="0 0 24 24"><use href="#i-hu"/></svg></span><span class="pv pr">P</span><span class="pv ap"><svg viewBox="0 0 24 24"><use href="#i-ap"/></svg></span></div></div>
+   </div>
+   <div class="g2 a"><div class="card"><h3>Credits Usage</h3><div id="chart-quota" class="svgc"></div></div><div class="card"><div class="rowh"><h3>Leads Status (Last <span class="rl">30</span> Days)</h3><div class="lg2"><span><i style="background:#8b5cf6"></i>Found</span><span><i style="background:#22c55e"></i>Verified</span><span><i style="background:#ef4444"></i>Failed</span></div></div><div id="chart-status" class="svgc"></div></div></div>
+<div class="g2 b"><div class="card"><h3>CRM Pipeline</h3><div class="pipe">
+    <div class="pst"><div class="t"><span class="ic" style="background:#4f46e5"><svg class="i" viewBox="0 0 24 24"><use href="#i-eye"/></svg></span>Found</div><div class="big" id="pp-found">0</div><small>Leads discovered</small></div>
+    <div class="pst"><div class="t"><span class="ic" style="background:#16a34a"><svg class="i" viewBox="0 0 24 24"><use href="#i-check"/></svg></span>Verified</div><div class="big" id="pp-valid">0</div><small>Valid emails</small></div>
+    <div class="pst"><div class="t"><span class="ic" style="background:#f97316"><svg class="i" viewBox="0 0 24 24"><use href="#i-send"/></svg></span>Sent to CRM</div><div class="big" id="pp-sent">0</div><small>Contacted / pushed</small></div>
+    <div class="pst"><div class="t"><span class="ic" style="background:#a855f7"><svg class="i" viewBox="0 0 24 24"><use href="#i-chat"/></svg></span>Replied</div><div class="big" id="pp-replied">0</div><small>Replies</small></div></div></div>
+<div class="card"><h3>Daily Leads (Last <span class="rl">30</span> Days)</h3><div id="chart-daily" class="svgc"></div></div></div>
+      <h3 class="sec">Credits ka Hisaab</h3><div id="quota-table"></div>
+   <p class="hint">This is the app’s own estimate. Compare with each provider’s dashboard now and then.</p>
+   <h3 class="sec">Ab tak ke Leads</h3>
+   <div class="tbl-h">
+    <div class="in grow"><svg class="i" viewBox="0 0 24 24"><use href="#i-search"/></svg><input id="hist-q" placeholder="Search naam / domain / email..."></div>
+    <div class="in sel"><select id="hist-status"><option value="">Sab status</option><option value="valid">✅ Valid</option><option value="risky">⚠️ Risky</option><option value="not_found">❌ Not found</option></select><svg class="i" viewBox="0 0 24 24"><use href="#i-down"/></svg></div>
+    <div class="in sel"><select id="hist-pipeline"><option value="">Sab pipeline</option><option value="contacted">Contacted</option><option value="replied">Replied</option><option value="interested">Interested</option><option value="closed">Closed</option></select><svg class="i" viewBox="0 0 24 24"><use href="#i-down"/></svg></div>
+    <button id="hist-export" class="btn ol"><svg class="i" viewBox="0 0 24 24"><use href="#i-dl"/></svg> Export CSV</button><button id="hist-reverify" class="btn ol"><svg class="i" viewBox="0 0 24 24"><use href="#i-ref"/></svg> Risky re-verify (job)</button><button id="hist-push" class="btn ol"><svg class="i" viewBox="0 0 24 24"><use href="#i-up"/></svg> Valid leads push karo</button></div>
+   <p id="hist-msg" class="msg"></p><div id="history-table"></div>
+  </section>
+
+  <section id="tab-auto" class="panel">
+   <div class="hd"><div><h1>Automation</h1><p>Automate lead discovery, import from Google Sheets and push valid leads to your CRM or tools.</p></div><button type="button" class="btn ol tut"><svg class="i" viewBox="0 0 24 24"><use href="#i-play"/></svg> Watch Tutorial</button></div>
+   <div class="tabs steps"><button class="tab" data-tab="single"><span class="n">1</span>Find Lead</button><button class="tab" data-tab="csv"><span class="n">2</span>CSV Import</button><button class="tab" data-tab="dash"><span class="n">3</span>Dashboard</button><button class="tab active" data-tab="auto"><span class="n">4</span>Automation</button></div>
+   <div class="cols wide"><div class="card"><div class="rowh"><h3 class="th"><span class="ib"><svg class="i" viewBox="0 0 24 24"><use href="#i-cal"/></svg></span><span>Scheduled Runs<div class="sub">Automatically import leads from Google Sheets and find verified emails.</div></span></h3><span class="st a">● Active</span></div>
+     <label class="f">Schedule name</label><div class="in"><svg class="i" viewBox="0 0 24 24"><use href="#i-cal"/></svg><input id="sch-name" placeholder="Weekly leads import"></div>
+     <label class="f">Google Sheet CSV URL</label><div class="in"><svg class="i" viewBox="0 0 24 24"><use href="#i-link"/></svg><input id="sch-url" placeholder="https://docs.google.com/spreadsheets/d/..."></div>
+     <div class="g2"><div><label class="f">Run every (hours)</label><div class="in"><svg class="i" viewBox="0 0 24 24"><use href="#i-clock"/></svg><input id="sch-interval" type="number" min="1" value="24"></div></div><div><label class="f">Google Sheet ID (optional)</label><div class="in"><svg class="i" viewBox="0 0 24 24"><use href="#i-file"/></svg><input id="sch-sheet" placeholder="Enter Sheet ID"></div></div></div>
+     <button id="sch-add" class="btn p mt"><svg class="i" viewBox="0 0 24 24"><use href="#i-plus"/></svg> Add Schedule</button><p id="sch-msg" class="msg"></p><div id="sch-list"></div></div>
+    <div class="card"><h3>How it works?</h3><div class="how">
+     <div class="s"><span class="ic" style="background:#16a34a"><svg class="i" viewBox="0 0 24 24"><use href="#i-file"/></svg></span><div><b>1. Add Google Sheet</b><p>Use your CSV link or connect a Google Sheet.</p></div></div>
+     <div class="s"><span class="ic" style="background:#2f6bff"><svg class="i" viewBox="0 0 24 24"><use href="#i-search"/></svg></span><div><b>2. We find &amp; verify</b><p>We find professional emails using Hunter, Prospeo and Apollo.</p></div></div>
+     <div class="s"><span class="ic" style="background:#7c3aed"><svg class="i" viewBox="0 0 24 24"><use href="#i-db"/></svg></span><div><b>3. Results appended</b><p>Verified emails are added back to your Google Sheet.</p></div></div>
+     <div class="s"><span class="ic" style="background:#f59e0b"><svg class="i" viewBox="0 0 24 24"><use href="#i-check"/></svg></span><div><b>4. Push to your tools</b><p>Automatically send valid leads to your CRM or tools.</p></div></div></div></div></div>
+   <div class="card"><div class="oc"><div><div class="rowh"><h3 class="th"><span class="ib"><svg class="i" viewBox="0 0 24 24"><use href="#i-send"/></svg></span><span>Outreach (Instantly / Smartlead)<div class="sub">Automatically push verified leads to your outreach campaigns.</div></span></h3><span class="en"><button type="button" class="tog" id="oc-enabled" role="switch" aria-label="Outreach enabled"></button>Enabled</span></div>
+     <div class="r3"><div><label class="f">Platform</label><div class="in sel"><select id="oc-provider"><option value="instantly">Instantly</option><option value="smartlead">Smartlead</option><option value="lemlist">Lemlist</option></select><svg class="i" viewBox="0 0 24 24"><use href="#i-down"/></svg></div></div>
+      <div><label class="f">Campaign ID</label><div class="in"><svg class="i" viewBox="0 0 24 24"><use href="#i-users"/></svg><input id="oc-campaign" placeholder="Enter campaign ID"></div></div>
+      <div><label class="f">API Key</label><div class="in"><svg class="i" viewBox="0 0 24 24"><use href="#i-key"/></svg><input id="oc-key" type="password" placeholder="Enter API key"></div></div></div>
+     <div class="btns"><button id="oc-save" class="btn"><svg class="i" viewBox="0 0 24 24"><use href="#i-file"/></svg> Save Settings</button><button id="oc-push" class="btn p"><svg class="i" viewBox="0 0 24 24"><use href="#i-send"/></svg> Push Valid Leads to Campaign</button></div><p id="oc-msg" class="msg"></p></div>
+     <div><h3>Supported Platforms</h3><div class="sup"><div class="plat" data-prov="instantly" tabindex="0"><span class="pv pr"><svg class="i" viewBox="0 0 24 24"><use href="#i-bolt"/></svg></span>Instantly</div><div class="plat" data-prov="smartlead" tabindex="0"><span class="pv sl">S</span>Smartlead</div><div class="plat" data-prov="lemlist" tabindex="0"><span class="pv ap2">L</span>Lemlist</div><div class="plat" data-prov="api" tabindex="0"><span class="pv ot"><svg class="i" viewBox="0 0 24 24"><use href="#i-link"/></svg></span>Other (via API)</div></div></div></div></div>
+   <div class="card"><div class="tk"><div><h3 class="th"><span class="ye big-i2"><svg class="i" viewBox="0 0 24 24"><use href="#i-key"/></svg></span><span>API Tokens (scripts/tools ke liye)<div class="sub">Generate API tokens to access this service from your scripts or integrations. Use <code>Authorization: Bearer &lt;token&gt;</code>. A token is shown only once.</div></span></h3>
+     <div class="g2 mt"><div class="in"><svg class="i" viewBox="0 0 24 24"><use href="#i-file"/></svg><input id="tok-name" placeholder="Token name (e.g. my-script)"></div><button id="tok-create" class="btn p"><svg class="i" viewBox="0 0 24 24"><use href="#i-plus"/></svg> Generate Token</button></div><p id="tok-msg" class="msg"></p><pre id="tok-show" class="hidden"></pre></div>
+     <div class="sc yt"><b>Your Tokens</b><div id="tok-list"><div class="empty"><span class="ic"><svg class="i" viewBox="0 0 24 24"><use href="#i-key"/></svg></span><div>No tokens generated yet.<div class="sub">Create a token to get started.</div></div></div></div></div></div></div>
+  </section>
+ </div>
+</main></div>
+<div id="tut" class="modal hidden" role="dialog" aria-modal="true" aria-label="Tutorial"><div class="mbox"><button type="button" class="x" id="tut-x" aria-label="Close">×</button><div id="tut-body"></div><div class="dots" id="tut-dots"></div><div class="btns"><button type="button" class="btn" id="tut-prev">Back</button><button type="button" class="btn p" id="tut-next">Next</button></div></div></div>
+<script src="app.js"></script>
+</body></html>

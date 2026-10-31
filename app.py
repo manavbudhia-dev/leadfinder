@@ -44,6 +44,7 @@ import sheets
 import throttle
 
 app = Flask(__name__, static_folder="static", static_url_path="")
+APP_VERSION = "2026.10.31-new-design"
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY") or os.urandom(32)
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
@@ -345,7 +346,15 @@ threading.Thread(target=_scheduler_loop, name="scheduler", daemon=True).start()
 # ------------------------------------------------------------------ auth
 @app.get("/healthz")
 def healthz():
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, "version": APP_VERSION})
+
+
+@app.after_request
+def _no_stale_ui(resp):
+    # Page/JS/CSS hamesha revalidate ho, taaki redeploy ke baad naya design turant dikhe.
+    if request.path in ("/", "/login") or request.path.endswith((".html", ".js", ".css")):
+        resp.headers["Cache-Control"] = "no-cache"
+    return resp
 
 
 @app.get("/login")

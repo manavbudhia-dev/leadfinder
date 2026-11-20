@@ -167,11 +167,17 @@ def db():
                 (name, 0, limit, next_reset(reset_day).isoformat()),
             )
         else:
-            used = 0 if today >= date.fromisoformat(row["resets_on"]) else row["used"]
-            resets = next_reset(reset_day) if used == 0 and today >= date.fromisoformat(row["resets_on"]) else row["resets_on"]
+            # Decide the reset inside the UPDATE itself. Writing back a `used` value read a moment
+            # earlier lost every bump() another thread committed in between (db() runs for each
+            # request and each parallel job row), so the counter drifted down and paid credits were
+            # spent past monthly_limit. ISO dates compare correctly as strings.
+            today_s = today.isoformat()
             conn.execute(
-                "UPDATE quotas SET used=?, monthly_limit=?, resets_on=? WHERE provider=?",
-                (used, limit, resets, name),
+                "UPDATE quotas SET "
+                "used = CASE WHEN ? >= resets_on THEN 0 ELSE used END, "
+                "resets_on = CASE WHEN ? >= resets_on THEN ? ELSE resets_on END, "
+                "monthly_limit = ? WHERE provider=?",
+                (today_s, today_s, next_reset(reset_day).isoformat(), limit, name),
             )
     conn.commit()
     return conn

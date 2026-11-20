@@ -383,8 +383,12 @@ def login():
         session["auth"] = True
         return jsonify({"ok": True})
     with _login_lock:
+        # Re-read under the lock: the count read above is stale once other requests from the same
+        # address failed meanwhile, and parallel guesses would all write the same count + 1 and
+        # never reach the lockout.
+        count, locked_until = _login_fails.get(ip, (0, 0.0))
         count += 1
-        locked = time.monotonic() + LOGIN_LOCKOUT_SECONDS if count >= LOGIN_MAX_FAILS else 0.0
+        locked = time.monotonic() + LOGIN_LOCKOUT_SECONDS if count >= LOGIN_MAX_FAILS else locked_until
         _login_fails[ip] = (count, locked)
     time.sleep(1)  # brute force slow karo
     return jsonify({"error": "Galat password."}), 401
